@@ -4,6 +4,8 @@ import React, { useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import type { Bucket } from "@/types/bucket";
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 
 export type BucketListPanelProps = {
   buckets: Bucket[];
@@ -51,20 +53,16 @@ export default function BucketListPanel({ buckets, tasks, onToggle, onDelete, on
                   )}
                   {list.map((t) => (
                     <li key={t.id} className="flex items-center justify-between px-3 py-2">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={t.completed}
-                          onChange={() => onToggle(t.id)}
-                          className="h-3.5 w-3.5 accent-blue-500"
-                        />
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={t.completed} onCheckedChange={() => onToggle(t.id)} />
                         <span className={`text-sm ${t.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
                           {t.title}
                         </span>
-                      </label>
+                      </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          className="text-xs text-muted-foreground hover:text-foreground"
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={() => {
                             const next = window.prompt("Edit task title", t.title);
                             if (next == null) return;
@@ -75,14 +73,15 @@ export default function BucketListPanel({ buckets, tasks, onToggle, onDelete, on
                           aria-label="Edit task"
                         >
                           <Pencil className="size-4" />
-                        </button>
-                        <button
-                          className="text-xs text-destructive hover:opacity-80"
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={() => onDelete(t.id)}
                           aria-label="Delete task"
                         >
-                          <Trash2 className="size-4" />
-                        </button>
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
                       </div>
                     </li>
                   ))}
