@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import AddTask from "@/components/sections/AddTask";
 import type { Task } from "@/types/task";
 import type { Bucket } from "@/types/bucket";
 import Header from "./Header";
-import BucketSelector from "./BucketSelector";
 import { storageAdapter, getStreak } from "@/lib/storage";
 import { toDateString } from "@/lib/date";
+import PanelContainer from "./PanelContainer";
+import BucketListPanel from "./BucketListPanel";
+import CalendarPanel from "./CalendarPanel";
+import TaskInput from "./TaskInput";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -16,11 +18,21 @@ function uid(): string {
 export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [selectedBucketId, setSelectedBucketId] = useState<string>("inbox");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [streak, setStreakState] = useState<number>(0);
   const today = useMemo(() => toDateString(new Date()), []);
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Panels & input
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
+  const [inputVisible, setInputVisible] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  const nowTimer = useRef<number | null>(null);
+  const [dateTime, setDateTime] = useState<string>(() => {
+    const d = new Date();
+    return `${toDateString(d)} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  });
 
   // Gesture helpers
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -34,14 +46,20 @@ export default function TaskList() {
     setBuckets(storageAdapter.getBuckets());
     setTasks(storageAdapter.getTasks());
     setStreakState(getStreak());
+
+    // Clock update
+    nowTimer.current = window.setInterval(() => {
+      const d = new Date();
+      setDateTime(`${toDateString(d)} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+    }, 1000);
+    return () => {
+      if (nowTimer.current) window.clearInterval(nowTimer.current);
+    };
   }, []);
 
   const todaysAll = useMemo(() => tasks.filter((t) => t.dueDate === today), [tasks, today]);
-  const todaysForBucket = useMemo(
-    () => todaysAll.filter((t) => t.bucketId === selectedBucketId),
-    [todaysAll, selectedBucketId]
-  );
-  const allDone = todaysAll.length > 0 && todaysAll.every((t) => t.completed);
+  const completedCount = todaysAll.filter((t) => t.completed).length;
+  const allDone = todaysAll.length > 0 && completedCount === todaysAll.length;
   const canAdd = todaysAll.length < 6; // Ivy Lee daily limit
 
   const colorClass = useMemo(() => {
@@ -54,32 +72,60 @@ export default function TaskList() {
 
   function persistTasks(next: Task[]) {
     setTasks(next);
-    // persist
     next.forEach((t) => storageAdapter.saveTask(t));
   }
 
-  function addBucket(name: string) {
+  function addBucket(name: string): Bucket {
+    const existing = buckets.find((b) => b.name.toLowerCase() === name.toLowerCase());
+    if (existing) return existing;
     const bucket: Bucket = { id: uid(), name, createdAt: new Date().toISOString() };
     const next = [...buckets, bucket];
     setBuckets(next);
     storageAdapter.saveBucket(bucket);
-    setSelectedBucketId(bucket.id);
+    return bucket;
   }
 
-  function addTask(title: string) {
-    if (!canAdd) return;
+  function ensureBucketByName(name: string): Bucket {
+    // Fallback to Inbox if name empty
+    const trimmed = name.trim();
+    if (!trimmed) return addBucket("Inbox");
+    const found = buckets.find((b) => b.name.toLowerCase() === trimmed.toLowerCase());
+    return found ?? addBucket(trimmed);
+  }
+
+  function parseBucketFromInput(input: string): Bucket {
+    // default Inbox
+    const mentionMatch = input.match(/@([^\s@]+)/);
+    if (mentionMatch) {
+      const bucketName = mentionMatch[1].replace(/[-_]/g, " ");
+      return ensureBucketByName(bucketName);
+    }
+    return ensureBucketByName("Inbox");
+  }
+
+  function addTaskFromInput(raw: string) {
+    const title = raw.replace(/\s+$/, "").trim();
+    if (!title || !canAdd) return;
+    const bucket = parseBucketFromInput(title);
+    const cleanTitle = title.replace(/@([^\s@]+)/, (m) => {
+      // keep the mention text as-is in the title, or remove? Keep it out for clarity
+      return "";
+    }).trim();
+
     const task: Task = {
       id: uid(),
-      title,
+      title: cleanTitle || title, // if removing mention results empty, keep original
       completed: false,
-      bucketId: selectedBucketId,
+      bucketId: bucket.id,
       createdAt: new Date().toISOString(),
       dueDate: today,
       rolledOver: false,
     };
     const next = [...tasks, task];
     persistTasks(next);
-    setSelectedIndex(todaysForBucket.length); // focus the new task index for current bucket
+    setSelectedIndex(todaysAll.length); // focus the new task index
+    setInputValue("");
+    setInputVisible(false);
   }
 
   function toggleTaskById(id: string) {
@@ -90,61 +136,68 @@ export default function TaskList() {
   function deleteTaskById(id: string) {
     const next = tasks.filter((t) => t.id !== id);
     setTasks(next);
-    // use adapter to delete
     storageAdapter.deleteTask(id);
     setSelectedIndex(null);
   }
 
-  function cycleBucket(direction: 1 | -1) {
-    if (buckets.length === 0) return;
-    const idx = Math.max(0, buckets.findIndex((b) => b.id === selectedBucketId));
-    const nextIdx = (idx + direction + buckets.length) % buckets.length;
-    setSelectedBucketId(buckets[nextIdx].id);
-    setSelectedIndex(null);
+  function editTaskTitle(id: string, title: string) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
+    storageAdapter.updateTask(id, { title });
   }
 
-  // Keyboard shortcuts (basic)
+  // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "c" || e.key === "n") {
         e.preventDefault();
-        inputRef.current?.focus();
+        if (!inputVisible) setInputVisible(true);
       } else if (e.key === "b") {
         e.preventDefault();
-        cycleBucket(1);
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        cycleBucket(-1);
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        cycleBucket(1);
+        const next = !(leftOpen || rightOpen);
+        setLeftOpen(next);
+        setRightOpen(next);
       } else if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        if (todaysForBucket.length === 0) return;
+        if (todaysAll.length === 0) return;
         setSelectedIndex((prev) => {
-          const next = prev == null ? 0 : Math.min(prev + 1, todaysForBucket.length - 1);
+          const next = prev == null ? 0 : Math.min(prev + 1, todaysAll.length - 1);
           return next;
         });
       } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
-        if (todaysForBucket.length === 0) return;
+        if (todaysAll.length === 0) return;
         setSelectedIndex((prev) => {
-          const next = prev == null ? todaysForBucket.length - 1 : Math.max(prev - 1, 0);
+          const next = prev == null ? todaysAll.length - 1 : Math.max(prev - 1, 0);
           return next;
         });
       } else if (e.key === "x") {
         e.preventDefault();
-        if (selectedIndex != null && todaysForBucket[selectedIndex]) {
-          toggleTaskById(todaysForBucket[selectedIndex].id);
+        if (selectedIndex != null && todaysAll[selectedIndex]) {
+          toggleTaskById(todaysAll[selectedIndex].id);
+        }
+      } else if (e.key === "Enter") {
+        if (inputVisible) {
+          e.preventDefault();
+          addTaskFromInput(inputValue);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
+        if (inputVisible) {
+          setInputVisible(false);
+          setInputValue("");
+          return;
+        }
+        if (leftOpen || rightOpen) {
+          setLeftOpen(false);
+          setRightOpen(false);
+          return;
+        }
         setSelectedIndex(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [todaysForBucket, selectedIndex, buckets, selectedBucketId]);
+  }, [todaysAll, selectedIndex, leftOpen, rightOpen, inputVisible, inputValue]);
 
   // Gesture handling
   function handleTouchStart(e: React.TouchEvent) {
@@ -191,13 +244,12 @@ export default function TaskList() {
     const absY = Math.abs(dy);
     const swipeThreshold = 40;
 
-    // Double tap detection
+    // Double tap detection -> mark all today's tasks complete
     const now = Date.now();
     if (absX < 10 && absY < 10 && dt < 250) {
       if (now - lastTapRef.current < 300) {
-        // double tap: mark all tasks in bucket complete
-        todaysForBucket.forEach((task) => storageAdapter.updateTask(task.id, { completed: true }));
-        setTasks((prev) => prev.map((t) => (t.bucketId === selectedBucketId && t.dueDate === today ? { ...t, completed: true } : t)));
+        todaysAll.forEach((task) => storageAdapter.updateTask(task.id, { completed: true }));
+        setTasks((prev) => prev.map((t) => (t.dueDate === today ? { ...t, completed: true } : t)));
         lastTapRef.current = 0;
         return;
       }
@@ -205,83 +257,84 @@ export default function TaskList() {
     }
 
     if (absX > absY && absX > swipeThreshold) {
-      // horizontal swipe
+      // horizontal swipe: open side panels
       if (dx > 0) {
-        cycleBucket(-1); // swipe right -> previous bucket
+        setLeftOpen(true);
       } else {
-        cycleBucket(1); // swipe left -> next bucket
+        setRightOpen(true);
       }
     } else if (absY > absX && absY > swipeThreshold) {
       if (dy < 0) {
-        // swipe up -> focus add
-        inputRef.current?.focus();
+        // swipe up -> open add
+        setInputVisible(true);
       } else {
         // swipe down -> toggle selected
-        if (selectedIndex != null && todaysForBucket[selectedIndex]) {
-          toggleTaskById(todaysForBucket[selectedIndex].id);
+        if (selectedIndex != null && todaysAll[selectedIndex]) {
+          toggleTaskById(todaysAll[selectedIndex].id);
         }
       }
     }
   }
 
   return (
-    <div
-      className="min-h-full max-w-xl mx-auto p-6 bg-white dark:bg-neutral-900 rounded-xl shadow flex flex-col select-none"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      <Header className="pt-10 pb-6" colorClass={colorClass} streak={streak} date={today} />
+    <div className="h-full">
+      <PanelContainer
+        leftOpen={leftOpen}
+        rightOpen={rightOpen}
+        left={<BucketListPanel buckets={buckets} tasks={tasks} onToggle={toggleTaskById} onDelete={deleteTaskById} onEdit={editTaskTitle} />}
+        right={<CalendarPanel tasks={tasks} />}
+      >
+        <div
+          className="min-h-full max-w-2xl mx-auto p-6 bg-white dark:bg-neutral-900 rounded-xl shadow flex flex-col select-none"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <Header className="pt-10 pb-6" colorClass={colorClass} streak={streak} date={dateTime} />
 
-      <BucketSelector
-        className="pb-4"
-        buckets={buckets}
-        selectedBucketId={selectedBucketId}
-        onSelect={(id) => setSelectedBucketId(id)}
-        onCreate={addBucket}
-      />
+          <div className="pb-2 text-sm text-muted-foreground">{completedCount}/{Math.max(6, todaysAll.length)} completed</div>
 
-      <ul className="space-y-2 h-full flex-1 overflow-auto">
-        {todaysForBucket.map((task, i) => (
-          <li
-            key={task.id}
-            data-task-id={task.id}
-            className={`flex items-center justify-between p-2 border rounded-lg border-gray-200 dark:border-neutral-700 ${
-              selectedIndex === i ? "ring-2 ring-sky-400" : ""
-            }`}
-            onClick={() => setSelectedIndex(i)}
-          >
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={task.completed}
-                onChange={() => toggleTaskById(task.id)}
-                className="h-4 w-4 accent-blue-500"
-              />
-              <span
-                className={`text-sm ${task.completed ? "line-through text-gray-400" : ""}`}
+          <ul className="space-y-2 h-full flex-1 overflow-auto">
+            {todaysAll.map((task, i) => (
+              <li
+                key={task.id}
+                data-task-id={task.id}
+                className={`flex items-center justify-between p-2 border rounded-lg border-gray-200 dark:border-neutral-700 ${
+                  selectedIndex === i ? "ring-2 ring-sky-400" : ""
+                }`}
+                onClick={() => setSelectedIndex(i)}
               >
-                {task.title}
-              </span>
-            </div>
-            <button
-              onClick={() => deleteTaskById(task.id)}
-              className="text-red-500 text-sm hover:text-red-700"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-        {todaysForBucket.length === 0 && (
-          <li className="text-sm text-muted-foreground text-center py-6">No tasks in this bucket for today.</li>
-        )}
-      </ul>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={task.completed}
+                    onChange={() => toggleTaskById(task.id)}
+                    className="h-4 w-4 accent-blue-500"
+                  />
+                  <span className={`text-sm ${task.completed ? "line-through text-gray-400" : ""}`}>{task.title}</span>
+                </div>
+                <button onClick={() => deleteTaskById(task.id)} className="text-red-500 text-sm hover:text-red-700">
+                  Delete
+                </button>
+              </li>
+            ))}
+            {todaysAll.length === 0 && <li className="text-sm text-muted-foreground text-center py-6">No tasks for today.</li>}
+          </ul>
 
-      <div className="pt-4">
-        <AddTask onAdd={addTask} disabled={!canAdd} inputRef={inputRef} />
-        {!canAdd && (
-          <p className="text-xs text-destructive mt-2">Daily focus limit reached (6). Complete tasks to add more.</p>
-        )}
-      </div>
+          {!canAdd && (
+            <p className="text-xs text-destructive mt-2">Daily focus limit reached (6). Complete tasks to add more.</p>
+          )}
+        </div>
+      </PanelContainer>
+
+      {/* Task input overlay */}
+      <TaskInput
+        visible={inputVisible}
+        value={inputValue}
+        onChange={setInputValue}
+        onSubmit={() => addTaskFromInput(inputValue)}
+        onClose={() => setInputVisible(false)}
+        buckets={buckets}
+      />
     </div>
   );
 }
