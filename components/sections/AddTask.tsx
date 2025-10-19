@@ -9,33 +9,45 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import type { Task } from "@/types/task";
 
 type AddTaskProps = {
-  setTaskAction: React.Dispatch<React.SetStateAction<Task[]>>;
+  onAdd: (title: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  inputRef?: React.RefObject<HTMLInputElement>;
 };
 
-export default function AddTask({ setTaskAction }: AddTaskProps) {
+export default function AddTask({ onAdd, disabled = false, placeholder = "Add Task", inputRef }: AddTaskProps) {
   const [input, setInput] = useState("");
 
   const addTask = () => {
-    if (!input.trim()) return;
-    setTaskAction((prev: Task[]) => [
-      ...prev,
-      { name: input.trim(), completed: false },
-    ]);
+    const title = input.trim();
+    if (!title || disabled) return;
+    onAdd(title);
     setInput("");
   };
 
   return (
     <InputGroup>
-      <InputGroupInput placeholder="Add Task" value={input} onChange={(e) => setInput(e.currentTarget.value)} />
+      <InputGroupInput
+        ref={inputRef}
+        placeholder={placeholder}
+        value={input}
+        onChange={(e) => setInput(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            addTask();
+          }
+        }}
+        disabled={disabled}
+      />
       <InputGroupAddon align="inline-end">
         <InputGroupButton
           variant="default"
           className="rounded-full"
           size="icon-xs"
           onClick={() => addTask()}
+          disabled={disabled}
         >
           <PlusIcon />
         </InputGroupButton>
