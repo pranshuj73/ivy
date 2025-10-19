@@ -2,7 +2,12 @@
 
 import type { Bucket } from "@/types/bucket";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { PlusIcon } from "lucide-react";
 
 type BucketSelectorProps = {
@@ -13,7 +18,13 @@ type BucketSelectorProps = {
   className?: string;
 };
 
-export default function BucketSelector({ buckets, selectedBucketId, onSelect, onCreate, className }: BucketSelectorProps) {
+export default function BucketSelector({
+  buckets,
+  selectedBucketId,
+  onSelect,
+  onCreate,
+  className,
+}: BucketSelectorProps) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,7 +33,10 @@ export default function BucketSelector({ buckets, selectedBucketId, onSelect, on
     if (creating) inputRef.current?.focus();
   }, [creating]);
 
-  const selectedName = useMemo(() => buckets.find(b => b.id === selectedBucketId)?.name ?? "Inbox", [buckets, selectedBucketId]);
+  const selectedName = useMemo(
+    () => buckets.find((b) => b.id === selectedBucketId)?.name ?? "Inbox",
+    [buckets, selectedBucketId],
+  );
 
   return (
     <div className={className}>
@@ -48,15 +62,24 @@ export default function BucketSelector({ buckets, selectedBucketId, onSelect, on
       {creating && (
         <div className="mt-2">
           <InputGroup>
-            <InputGroupInput ref={inputRef} placeholder="Bucket name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
+            <InputGroupInput
+              ref={inputRef}
+              placeholder="Bucket name"
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
             <InputGroupAddon align="inline-end">
-              <InputGroupButton size="icon-xs" className="rounded-full" onClick={() => {
-                const n = name.trim();
-                if (!n) return;
-                onCreate(n);
-                setName("");
-                setCreating(false);
-              }}>
+              <InputGroupButton
+                size="icon-xs"
+                className="rounded-full"
+                onClick={() => {
+                  const n = name.trim();
+                  if (!n) return;
+                  onCreate(n);
+                  setName("");
+                  setCreating(false);
+                }}
+              >
                 <PlusIcon />
               </InputGroupButton>
             </InputGroupAddon>

@@ -15,7 +15,13 @@ export type BucketListPanelProps = {
   onEdit: (taskId: string, title: string) => void;
 };
 
-export default function BucketListPanel({ buckets, tasks, onToggle, onDelete, onEdit }: BucketListPanelProps) {
+export default function BucketListPanel({
+  buckets,
+  tasks,
+  onToggle,
+  onDelete,
+  onEdit,
+}: BucketListPanelProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const grouped = useMemo(() => {
@@ -31,31 +37,54 @@ export default function BucketListPanel({ buckets, tasks, onToggle, onDelete, on
 
   return (
     <div className="h-full overflow-y-auto p-4">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Buckets</h2>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Buckets
+      </h2>
       <div className="space-y-2">
         {grouped.map(([bucketId, list]) => {
           const bucket = buckets.find((b) => b.id === bucketId);
           const isCollapsed = !!collapsed[bucketId];
           return (
-            <div key={bucketId} className="rounded-lg border border-border bg-background/60">
+            <div
+              key={bucketId}
+              className="rounded-lg border border-border bg-background/60"
+            >
               <button
                 className="flex w-full items-center justify-between px-3 py-2"
-                onClick={() => setCollapsed((c) => ({ ...c, [bucketId]: !c[bucketId] }))}
+                onClick={() =>
+                  setCollapsed((c) => ({ ...c, [bucketId]: !c[bucketId] }))
+                }
                 aria-expanded={!isCollapsed}
               >
-                <span className="text-sm font-medium">{bucket?.name ?? "Unknown"}</span>
-                {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                <span className="text-sm font-medium">
+                  {bucket?.name ?? "Unknown"}
+                </span>
+                {isCollapsed ? (
+                  <ChevronRight className="size-4" />
+                ) : (
+                  <ChevronDown className="size-4" />
+                )}
               </button>
               {!isCollapsed && (
                 <ul className="divide-y divide-border/80">
                   {list.length === 0 && (
-                    <li className="p-3 text-xs text-muted-foreground">No tasks</li>
+                    <li className="p-3 text-xs text-muted-foreground">
+                      No tasks
+                    </li>
                   )}
                   {list.map((t) => (
-                    <li key={t.id} className="flex items-center justify-between px-3 py-2">
+                    <li
+                      key={t.id}
+                      className="flex items-center justify-between px-3 py-2"
+                    >
                       <div className="flex items-center gap-2">
-                        <Checkbox checked={t.completed} onCheckedChange={() => onToggle(t.id)} />
-                        <span className={`text-sm ${t.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        <Checkbox
+                          checked={t.completed}
+                          onCheckedChange={() => onToggle(t.id)}
+                        />
+                        <span
+                          className={`text-sm ${t.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                        >
                           {t.title}
                         </span>
                       </div>
@@ -64,7 +93,10 @@ export default function BucketListPanel({ buckets, tasks, onToggle, onDelete, on
                           variant="ghost"
                           size="icon-sm"
                           onClick={() => {
-                            const next = window.prompt("Edit task title", t.title);
+                            const next = window.prompt(
+                              "Edit task title",
+                              t.title,
+                            );
                             if (next == null) return;
                             const trimmed = next.trim();
                             if (!trimmed) return;

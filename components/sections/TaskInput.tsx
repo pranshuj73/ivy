@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { XIcon, PlusIcon } from "lucide-react";
 import type { Bucket } from "@/types/bucket";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,7 +20,14 @@ export type TaskInputProps = {
   buckets: Bucket[];
 };
 
-export default function TaskInput({ visible, value, onChange, onSubmit, onClose, buckets }: TaskInputProps) {
+export default function TaskInput({
+  visible,
+  value,
+  onChange,
+  onSubmit,
+  onClose,
+  buckets,
+}: TaskInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
@@ -103,10 +115,19 @@ export default function TaskInput({ visible, value, onChange, onSubmit, onClose,
                     onKeyDown={handleKeyDown}
                   />
                   <InputGroupAddon align="inline-end">
-                    <InputGroupButton size="icon-xs" className="rounded-full" onClick={onSubmit}>
+                    <InputGroupButton
+                      size="icon-xs"
+                      className="rounded-full"
+                      onClick={onSubmit}
+                    >
                       <PlusIcon />
                     </InputGroupButton>
-                    <InputGroupButton size="icon-xs" variant="ghost" className="rounded-full" onClick={onClose}>
+                    <InputGroupButton
+                      size="icon-xs"
+                      variant="ghost"
+                      className="rounded-full"
+                      onClick={onClose}
+                    >
                       <XIcon />
                     </InputGroupButton>
                   </InputGroupAddon>
@@ -126,7 +147,9 @@ export default function TaskInput({ visible, value, onChange, onSubmit, onClose,
                         <button
                           key={b.id}
                           className={`flex w-full items-center justify-between px-3 py-2 text-left ${
-                            i === activeIndex ? "bg-secondary/80" : "hover:bg-secondary/60"
+                            i === activeIndex
+                              ? "bg-secondary/80"
+                              : "hover:bg-secondary/60"
                           }`}
                           onClick={() => applySuggestion(b.name)}
                           role="option"

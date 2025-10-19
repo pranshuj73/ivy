@@ -13,10 +13,18 @@ type PanelContainerProps = {
   onOverlayClick?: () => void;
 };
 
-export default function PanelContainer({ leftOpen, rightOpen, left, right, children, className, onOverlayClick }: PanelContainerProps) {
+export default function PanelContainer({
+  leftOpen,
+  rightOpen,
+  left,
+  right,
+  children,
+  className,
+  onOverlayClick,
+}: PanelContainerProps) {
   const anyOpen = leftOpen || rightOpen;
   return (
-    <div className={`relative h-full ${className ?? ""}`}>      
+    <div className={`relative h-full ${className ?? ""}`}>
       {/* Dim overlay when a panel is open */}
       <AnimatePresence>
         {anyOpen && (
@@ -25,7 +33,12 @@ export default function PanelContainer({ leftOpen, rightOpen, left, right, child
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.35 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 30, mass: 0.6 }}
+            transition={{
+              type: "spring",
+              stiffness: 260,
+              damping: 30,
+              mass: 0.6,
+            }}
             className="pointer-events-auto absolute inset-0 z-10 bg-black"
             onClick={onOverlayClick}
             aria-hidden

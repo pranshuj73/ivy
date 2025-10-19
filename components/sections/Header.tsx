@@ -8,7 +8,12 @@ type HeaderProps = {
   date?: string;
 };
 
-export default function Header({ className, colorClass = "text-foreground", streak = 0, date }: HeaderProps) {
+export default function Header({
+  className,
+  colorClass = "text-foreground",
+  streak = 0,
+  date,
+}: HeaderProps) {
   return (
     <header className={`flex items-center justify-between w-full ${className}`}>
       <div className={`flex items-center gap-3 ${colorClass}`}>

@@ -17,7 +17,12 @@ type AddTaskProps = {
   inputRef?: React.RefObject<HTMLInputElement>;
 };
 
-export default function AddTask({ onAdd, disabled = false, placeholder = "Add Task", inputRef }: AddTaskProps) {
+export default function AddTask({
+  onAdd,
+  disabled = false,
+  placeholder = "Add Task",
+  inputRef,
+}: AddTaskProps) {
   const [input, setInput] = useState("");
 
   const addTask = () => {

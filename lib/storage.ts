@@ -115,7 +115,10 @@ class LocalStorageAdapter implements StorageAdapter {
 
   deleteTask(taskId: string): void {
     const tasks = this.getTasks();
-    writeJSON(LS_KEYS.tasks, tasks.filter((t) => t.id !== taskId));
+    writeJSON(
+      LS_KEYS.tasks,
+      tasks.filter((t) => t.id !== taskId),
+    );
   }
 
   resetDay(): void {

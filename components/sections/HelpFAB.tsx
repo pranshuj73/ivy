@@ -1,19 +1,24 @@
-"use client"
+"use client";
 
-import React from "react"
-import { Button } from "@/components/ui/button"
-import { HelpCircle } from "lucide-react"
-import { AnimatePresence, motion } from "framer-motion"
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { HelpCircle } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 export default function HelpFAB({ hidden = false }: { hidden?: boolean }) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(false);
 
-  if (hidden) return null
+  if (hidden) return null;
 
   return (
     <>
       <div className="fixed bottom-5 right-5 z-40">
-        <Button variant="secondary" size="lg" className="rounded-full shadow-md" onClick={() => setOpen(true)}>
+        <Button
+          variant="secondary"
+          size="lg"
+          className="rounded-full shadow-md"
+          onClick={() => setOpen(true)}
+        >
           <HelpCircle /> Help
         </Button>
       </div>
@@ -45,14 +50,18 @@ export default function HelpFAB({ hidden = false }: { hidden?: boolean }) {
                 <li>Esc: close panels or input</li>
                 <li>Use @bucket to assign while adding</li>
               </ul>
-              <div className="mt-3 text-xs text-muted-foreground">Long-press on a task (mobile) to edit or delete.</div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                Long-press on a task (mobile) to edit or delete.
+              </div>
               <div className="mt-4 flex justify-end">
-                <Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>
+                <Button variant="secondary" onClick={() => setOpen(false)}>
+                  Close
+                </Button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </>
-  )
+  );
 }

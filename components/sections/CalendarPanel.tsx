@@ -11,7 +11,8 @@ function getMonthGrid(date: Date) {
   const startWeekday = first.getDay(); // 0-6, Sunday first
   const grid: (Date | null)[] = [];
   for (let i = 0; i < startWeekday; i++) grid.push(null);
-  for (let d = 1; d <= daysInMonth; d++) grid.push(new Date(date.getFullYear(), date.getMonth(), d));
+  for (let d = 1; d <= daysInMonth; d++)
+    grid.push(new Date(date.getFullYear(), date.getMonth(), d));
   while (grid.length % 7 !== 0) grid.push(null);
   return grid;
 }
@@ -21,9 +22,15 @@ export type CalendarPanelProps = {
   className?: string;
 };
 
-export default function CalendarPanel({ tasks, className }: CalendarPanelProps) {
+export default function CalendarPanel({
+  tasks,
+  className,
+}: CalendarPanelProps) {
   const now = new Date();
-  const monthName = now.toLocaleString(undefined, { month: "long", year: "numeric" });
+  const monthName = now.toLocaleString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
   const grid = useMemo(() => getMonthGrid(now), [now]);
 
   // Build day status map
@@ -44,15 +51,19 @@ export default function CalendarPanel({ tasks, className }: CalendarPanelProps) 
     const key = toDateString(d);
     const rec = byDate.get(key);
     if (!rec) return "bg-secondary/40";
-    if (rec.total > 0 && rec.done === rec.total) return "bg-emerald-500/70 text-white";
-    if (rec.total > 0 && rec.done < rec.total) return "bg-red-500/70 text-white";
+    if (rec.total > 0 && rec.done === rec.total)
+      return "bg-emerald-500/70 text-white";
+    if (rec.total > 0 && rec.done < rec.total)
+      return "bg-red-500/70 text-white";
     return "bg-secondary/40";
   }
 
   return (
     <div className={`h-full overflow-y-auto p-4 ${className ?? ""}`}>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{monthName}</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          {monthName}
+        </h2>
       </div>
       <div className="grid grid-cols-7 gap-2">
         {grid.map((d, i) => (
