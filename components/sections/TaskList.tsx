@@ -10,6 +10,7 @@ import PanelContainer from "./PanelContainer";
 import BucketListPanel from "./BucketListPanel";
 import CalendarPanel from "./CalendarPanel";
 import TaskInput from "./TaskInput";
+import { AnimatePresence, motion } from "framer-motion";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -86,9 +87,12 @@ export default function TaskList() {
   }
 
   function ensureBucketByName(name: string): Bucket {
-    // Fallback to Inbox if name empty
     const trimmed = name.trim();
-    if (!trimmed) return addBucket("Inbox");
+    if (!trimmed) {
+      const inbox = buckets.find((b) => b.id === "inbox" || b.name.toLowerCase() === "inbox");
+      if (inbox) return inbox;
+      return addBucket("Inbox");
+    }
     const found = buckets.find((b) => b.name.toLowerCase() === trimmed.toLowerCase());
     return found ?? addBucket(trimmed);
   }
@@ -148,6 +152,12 @@ export default function TaskList() {
   // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Disable global shortcuts while typing in inputs/textareas/contenteditable
+      const ae = document.activeElement as HTMLElement | null;
+      const tag = ae?.tagName?.toLowerCase();
+      const isTyping = tag === "input" || tag === "textarea" || ae?.getAttribute("contenteditable") === "true";
+      if (isTyping) return;
+
       if (e.key === "c" || e.key === "n") {
         e.preventDefault();
         if (!inputVisible) setInputVisible(true);
@@ -277,51 +287,62 @@ export default function TaskList() {
   }
 
   return (
-    <div className="h-full">
+    <div className="relative h-full">
       <PanelContainer
         leftOpen={leftOpen}
         rightOpen={rightOpen}
+        onOverlayClick={() => {
+          setLeftOpen(false);
+          setRightOpen(false);
+        }}
         left={<BucketListPanel buckets={buckets} tasks={tasks} onToggle={toggleTaskById} onDelete={deleteTaskById} onEdit={editTaskTitle} />}
         right={<CalendarPanel tasks={tasks} />}
       >
         <div
-          className="min-h-full max-w-2xl mx-auto p-6 bg-white dark:bg-neutral-900 rounded-xl shadow flex flex-col select-none"
+          className="h-full min-h-0 max-w-2xl mx-auto p-6 bg-white dark:bg-neutral-900 rounded-xl shadow flex flex-col select-none overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <Header className="pt-10 pb-6" colorClass={colorClass} streak={streak} date={dateTime} />
+          <Header className="pt-6 pb-4" colorClass={colorClass} streak={streak} date={dateTime} />
 
           <div className="pb-2 text-sm text-muted-foreground">{completedCount}/{Math.max(6, todaysAll.length)} completed</div>
 
-          <ul className="space-y-2 h-full flex-1 overflow-auto">
-            {todaysAll.map((task, i) => (
-              <li
-                key={task.id}
-                data-task-id={task.id}
-                className={`flex items-center justify-between p-2 border rounded-lg border-gray-200 dark:border-neutral-700 ${
-                  selectedIndex === i ? "ring-2 ring-sky-400" : ""
-                }`}
-                onClick={() => setSelectedIndex(i)}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => toggleTaskById(task.id)}
-                    className="h-4 w-4 accent-blue-500"
-                  />
-                  <span className={`text-sm ${task.completed ? "line-through text-gray-400" : ""}`}>{task.title}</span>
-                </div>
-                <button onClick={() => deleteTaskById(task.id)} className="text-red-500 text-sm hover:text-red-700">
-                  Delete
-                </button>
-              </li>
-            ))}
-            {todaysAll.length === 0 && <li className="text-sm text-muted-foreground text-center py-6">No tasks for today.</li>}
+          <ul className="space-y-2 flex-1 overflow-y-auto overflow-x-hidden">
+            <AnimatePresence initial={false}>
+              {todaysAll.map((task, i) => (
+                <motion.li
+                  layout
+                  key={task.id}
+                  data-task-id={task.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15 }}
+                  className={`flex items-center justify-between rounded-lg border border-gray-200 bg-secondary/20 p-2 shadow-sm transition-colors dark:border-neutral-700 ${
+                    selectedIndex === i ? "ring-2 ring-sky-400" : ""
+                  }`}
+                  onClick={() => setSelectedIndex(i)}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onChange={() => toggleTaskById(task.id)}
+                      className="h-4 w-4 accent-blue-500"
+                    />
+                    <span className={`text-sm ${task.completed ? "line-through text-gray-400" : ""}`}>{task.title}</span>
+                  </div>
+                  <button onClick={() => deleteTaskById(task.id)} className="text-red-500 text-sm hover:text-red-700">
+                    Delete
+                  </button>
+                </motion.li>
+              ))}
+            </AnimatePresence>
+            {todaysAll.length === 0 && <li className="py-6 text-center text-sm text-muted-foreground">No tasks for today.</li>}
           </ul>
 
           {!canAdd && (
-            <p className="text-xs text-destructive mt-2">Daily focus limit reached (6). Complete tasks to add more.</p>
+            <p className="mt-2 text-xs text-destructive">Daily focus limit reached (6). Complete tasks to add more.</p>
           )}
         </div>
       </PanelContainer>
