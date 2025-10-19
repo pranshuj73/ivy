@@ -1,4 +1,5 @@
 import Logo from "@/components/icons/Logo";
+import { SettingsTrigger } from "./SettingsModal";
 
 type HeaderProps = {
   className?: string;
@@ -19,6 +20,7 @@ export default function Header({ className, colorClass = "text-foreground", stre
           <span>Streak:</span>
           <span className="font-semibold text-foreground">{streak}</span>
         </div>
+        <SettingsTrigger />
       </div>
     </header>
   );

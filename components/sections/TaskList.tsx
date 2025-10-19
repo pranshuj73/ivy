@@ -11,6 +11,12 @@ import BucketListPanel from "./BucketListPanel";
 import CalendarPanel from "./CalendarPanel";
 import TaskInput from "./TaskInput";
 import { AnimatePresence, motion } from "framer-motion";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Trash2 } from "lucide-react";
+import HelpFAB from "./HelpFAB";
+import { useSettings } from "@/components/providers/SettingsProvider";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -28,6 +34,8 @@ export default function TaskList() {
   const [rightOpen, setRightOpen] = useState(false);
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState("");
+
+  const { animations, density } = useSettings();
 
   const nowTimer = useRef<number | null>(null);
   const [dateTime, setDateTime] = useState<string>(() => {
@@ -71,10 +79,10 @@ export default function TaskList() {
     return "text-muted-foreground";
   }, [allDone, todaysAll.length, streak]);
 
-  function persistTasks(next: Task[]) {
+  const persistTasks = React.useCallback((next: Task[]) => {
     setTasks(next);
     next.forEach((t) => storageAdapter.saveTask(t));
-  }
+  }, []);
 
   function addBucket(name: string): Bucket {
     const existing = buckets.find((b) => b.name.toLowerCase() === name.toLowerCase());
@@ -132,22 +140,22 @@ export default function TaskList() {
     setInputVisible(false);
   }
 
-  function toggleTaskById(id: string) {
+  const toggleTaskById = React.useCallback((id: string) => {
     const next = tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
     persistTasks(next);
-  }
+  }, [tasks, persistTasks]);
 
-  function deleteTaskById(id: string) {
+  const deleteTaskById = React.useCallback((id: string) => {
     const next = tasks.filter((t) => t.id !== id);
     setTasks(next);
     storageAdapter.deleteTask(id);
     setSelectedIndex(null);
-  }
+  }, [tasks]);
 
-  function editTaskTitle(id: string, title: string) {
+  const editTaskTitle = React.useCallback((id: string, title: string) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
     storageAdapter.updateTask(id, { title });
-  }
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -286,6 +294,45 @@ export default function TaskList() {
     }
   }
 
+  type TaskRowProps = {
+    task: Task;
+    index: number;
+    selected: boolean;
+    onSelect: (index: number) => void;
+    onToggle: (id: string) => void;
+    onDelete: (id: string) => void;
+    animations: boolean;
+    density: "comfortable" | "compact";
+  }
+
+  const TaskRow = React.memo(function TaskRow({ task, index, selected, onSelect, onToggle, onDelete, animations, density }: TaskRowProps) {
+    return (
+      <motion.li
+        layout
+        key={task.id}
+        data-task-id={task.id}
+        initial={animations ? { opacity: 0, y: 6 } : false}
+        animate={animations ? { opacity: 1, y: 0 } : undefined}
+        exit={animations ? { opacity: 0, y: -6 } : undefined}
+        transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.6 }}
+        className="list-none"
+        onClick={() => onSelect(index)}
+      >
+        <Card className={`group flex items-center justify-between ${density === 'compact' ? 'px-2 py-1' : 'p-2'} ${selected ? "ring-2 ring-sky-400" : ""}`}>
+          <div className="flex items-center gap-3">
+            <Checkbox checked={task.completed} onCheckedChange={() => onToggle(task.id)} />
+            <span className={`text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+              {task.title}
+            </span>
+          </div>
+          <Button variant="ghost" size="icon-sm" aria-label="Delete task" onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}>
+            <Trash2 className="text-destructive" />
+          </Button>
+        </Card>
+      </motion.li>
+    )
+  })
+
   return (
     <div className="relative h-full">
       <PanelContainer
@@ -299,7 +346,7 @@ export default function TaskList() {
         right={<CalendarPanel tasks={tasks} />}
       >
         <div
-          className="h-full min-h-0 max-w-2xl mx-auto p-6 bg-white dark:bg-neutral-900 rounded-xl shadow flex flex-col select-none overflow-hidden"
+          className="h-full min-h-0 p-6 bg-card text-card-foreground rounded-xl shadow flex flex-col select-none overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -307,35 +354,20 @@ export default function TaskList() {
 
           <div className="pb-2 text-sm text-muted-foreground">{completedCount}/{Math.max(6, todaysAll.length)} completed</div>
 
-          <ul className="space-y-2 flex-1 overflow-y-auto overflow-x-hidden">
+          <ul className={`${density === 'compact' ? 'space-y-1' : 'space-y-2'} flex-1 overflow-y-auto overflow-x-hidden`}>
             <AnimatePresence initial={false}>
               {todaysAll.map((task, i) => (
-                <motion.li
-                  layout
+                <TaskRow
                   key={task.id}
-                  data-task-id={task.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15 }}
-                  className={`flex items-center justify-between rounded-lg border border-gray-200 bg-secondary/20 p-2 shadow-sm transition-colors dark:border-neutral-700 ${
-                    selectedIndex === i ? "ring-2 ring-sky-400" : ""
-                  }`}
-                  onClick={() => setSelectedIndex(i)}
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onChange={() => toggleTaskById(task.id)}
-                      className="h-4 w-4 accent-blue-500"
-                    />
-                    <span className={`text-sm ${task.completed ? "line-through text-gray-400" : ""}`}>{task.title}</span>
-                  </div>
-                  <button onClick={() => deleteTaskById(task.id)} className="text-red-500 text-sm hover:text-red-700">
-                    Delete
-                  </button>
-                </motion.li>
+                  task={task}
+                  index={i}
+                  selected={selectedIndex === i}
+                  onSelect={setSelectedIndex}
+                  onToggle={toggleTaskById}
+                  onDelete={deleteTaskById}
+                  animations={animations}
+                  density={density}
+                />
               ))}
             </AnimatePresence>
             {todaysAll.length === 0 && <li className="py-6 text-center text-sm text-muted-foreground">No tasks for today.</li>}
@@ -347,6 +379,8 @@ export default function TaskList() {
         </div>
       </PanelContainer>
 
+      <HelpFAB hidden={leftOpen || rightOpen} />
+
       {/* Task input overlay */}
       <TaskInput
         visible={inputVisible}
@@ -356,6 +390,6 @@ export default function TaskList() {
         onClose={() => setInputVisible(false)}
         buckets={buckets}
       />
-    </div>
-  );
-}
+      </div>
+      );
+      }
