@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import type { Bucket } from "@/types/bucket";
 import { ChevronDown, ChevronRight, Pencil, Trash2, CheckSquare, PlusCircle, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AnimatePresence, motion } from "framer-motion";
 
 export type BucketListPanelProps = {
   buckets: Bucket[];
@@ -27,6 +29,11 @@ export default function BucketListPanel({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    setDraft(editing?.title ?? "");
+  }, [editing]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -121,16 +128,7 @@ export default function BucketListPanel({
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => {
-                              const next = window.prompt(
-                                "Edit task title",
-                                t.title,
-                              );
-                              if (next == null) return;
-                              const trimmed = next.trim();
-                              if (!trimmed) return;
-                              onEdit(t.id, trimmed);
-                            }}
+                            onClick={() => setEditing({ id: t.id, title: t.title })}
                             aria-label="Edit task"
                             data-row-action
                           >
@@ -193,6 +191,58 @@ export default function BucketListPanel({
           </div>
         )}
       </div>
+
+      {/* Edit modal */}
+      <AnimatePresence>
+        {editing && (
+          <motion.div
+            key="edit-bucket-task"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+            onClick={() => setEditing(null)}
+          >
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 text-sm font-medium">Edit task</div>
+              <div className="space-y-3">
+                <Input
+                  value={draft}
+                  onChange={(e) => setDraft(e.currentTarget.value)}
+                  placeholder="Task title"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const t = draft.trim();
+                      if (t) {
+                        onEdit(editing.id, t);
+                        setEditing(null);
+                      }
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      setEditing(null);
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <Button variant="destructive" onClick={() => { onDelete(editing.id); setEditing(null); }}>Delete</Button>
+                  <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+                  <Button onClick={() => { const t = draft.trim(); if (t) { onEdit(editing.id, t); setEditing(null); } }} disabled={draft.trim().length === 0}>Save</Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

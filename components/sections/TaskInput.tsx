@@ -91,7 +91,7 @@ export default function TaskInput({
       return;
     }
     // Block global hotkeys while typing
-    if (["b", "n", "c", "x", "j", "k"].includes(e.key)) {
+    if (["b", "n", "c", "x", "j", "k", "h", "H"].includes(e.key)) {
       e.stopPropagation();
     }
   }

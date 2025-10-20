@@ -17,9 +17,48 @@ import { Card } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 import HelpFAB from "./HelpFAB";
 import { useSettings } from "@/components/providers/SettingsProvider";
+import { Input } from "@/components/ui/input";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+type EditTaskFormProps = {
+  id: string;
+  initialTitle: string;
+  onSave: (title: string) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+};
+
+function EditTaskForm({ id: _id, initialTitle, onSave, onCancel, onDelete }: EditTaskFormProps) {
+  const [title, setTitle] = useState(initialTitle);
+  useEffect(() => setTitle(initialTitle), [initialTitle]);
+  const disabled = title.trim().length === 0;
+  return (
+    <div className="space-y-3">
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.currentTarget.value)}
+        placeholder="Task title"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (!disabled) onSave(title);
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+      />
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="destructive" onClick={onDelete}>Delete</Button>
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button onClick={() => onSave(title)} disabled={disabled}>Save</Button>
+      </div>
+    </div>
+  );
 }
 
 export default function TaskList() {
@@ -80,6 +119,9 @@ export default function TaskList() {
   );
   const lastTapRef = useRef<number>(0);
   const longPressTimer = useRef<number | null>(null);
+
+  // Edit modal state (replaces browser prompts)
+  const [editModal, setEditModal] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     // Initialize and perform rollover
@@ -292,6 +334,9 @@ export default function TaskList() {
           e.preventDefault();
           addTaskFromInput(currentInput);
         }
+      } else if (e.key === "h" || e.key === "H") {
+        e.preventDefault();
+        window.dispatchEvent(new Event("ivylee:open-help"));
       } else if (e.key === "Escape") {
         e.preventDefault();
         if (inputVisible) {
@@ -324,23 +369,10 @@ export default function TaskList() {
     if (target) {
       const taskId = target.dataset.taskId!;
       longPressTimer.current = window.setTimeout(() => {
-        // Enter inline edit mode: prompt for new title or delete
+        // Enter inline edit mode using a custom dialog
         const task = tasks.find((t) => t.id === taskId);
         if (!task) return;
-        const nextTitle = window.prompt("Edit task title:", task.title);
-        if (nextTitle === null) return; // cancelled
-        const trimmed = nextTitle.trim();
-        if (trimmed === "") {
-          // if cleared, ask to delete
-          const yes = window.confirm("Delete task?");
-          if (yes) deleteTaskById(taskId);
-        } else {
-          const next = tasks.map((t) =>
-            t.id === taskId ? { ...t, title: trimmed } : t,
-          );
-          setTasks(next);
-          storageAdapter.updateTask(taskId, { title: trimmed });
-        }
+        setEditModal({ id: taskId, title: task.title });
       }, 600); // long press duration
     }
   }
@@ -588,6 +620,47 @@ export default function TaskList() {
       </PanelContainer>
 
       <HelpFAB hidden={leftOpen || rightOpen} />
+
+      {/* Edit task dialog */}
+      <AnimatePresence>
+        {editModal && (
+          <motion.div
+            key="edit-task"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+            onClick={() => setEditModal(null)}
+          >
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 text-sm font-medium">Edit task</div>
+              <EditTaskForm
+                id={editModal.id}
+                initialTitle={editModal.title}
+                onCancel={() => setEditModal(null)}
+                onDelete={() => {
+                  deleteTaskById(editModal.id);
+                  setEditModal(null);
+                }}
+                onSave={(title) => {
+                  const trimmed = title.trim();
+                  if (!trimmed) return;
+                  editTaskTitle(editModal.id, trimmed);
+                  setEditModal(null);
+                }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Task input overlay */}
       <TaskInput
