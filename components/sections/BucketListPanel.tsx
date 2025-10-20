@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import type { Bucket } from "@/types/bucket";
-import { ChevronDown, ChevronRight, Pencil, Trash2, CheckSquare, PlusCircle, XCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, CheckSquare, PlusCircle, XCircle, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ export default function BucketListPanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
   const [draft, setDraft] = useState("");
   const { showCompleted } = useSettings();
 
@@ -142,21 +143,32 @@ export default function BucketListPanel({
                           <Button
                             variant="ghost"
                             size="icon-sm"
+                            aria-label="More"
+                            className="transition-all group-hover:hidden"
                             onClick={() => setEditing({ id: t.id, title: t.title })}
-                            aria-label="Edit task"
-                            className="transition-all group-hover:rounded-r-none"
                           >
-                            <Pencil className="size-4" />
+                            <MoreHorizontal className="size-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => onDelete(t.id)}
-                            aria-label="Delete task"
-                            className="w-0 opacity-0 group-hover:w-8 group-hover:opacity-100 transition-all rounded-l-none overflow-hidden"
-                          >
-                            <Trash2 className="size-4 text-destructive" />
-                          </Button>
+                          <div className="hidden items-center gap-0 group-hover:flex">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setEditing({ id: t.id, title: t.title })}
+                              aria-label="Edit task"
+                              className="rounded-r-none"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setConfirmDelete({ id: t.id, title: t.title })}
+                              aria-label="Delete task"
+                              className="rounded-l-none"
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       </li>
                     );
@@ -213,7 +225,7 @@ export default function BucketListPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+            className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
             onClick={() => setEditing(null)}
           >
             <motion.div
@@ -246,10 +258,50 @@ export default function BucketListPanel({
                   }}
                 />
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="destructive" onClick={() => { onDelete(editing!.id); setEditing(null); }}>Delete</Button>
+                  <Button variant="destructive" onClick={() => { setConfirmDelete({ id: editing!.id, title: draft || editing!.title }); }}>Delete</Button>
                   <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
                   <Button onClick={() => { const t = draft.trim(); if (t) { onEdit(editing!.id, t); setEditing(null); } }} disabled={draft.trim().length === 0}>Save</Button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete modal */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div
+            key="delete-bucket-task"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[70] grid place-items-center bg-black/40 p-4"
+            onClick={() => setConfirmDelete(null)}
+          >
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 text-sm font-medium text-destructive">Delete task</div>
+              <div className="text-sm text-muted-foreground">Are you sure you want to delete “{confirmDelete.title}”?</div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    onDelete(confirmDelete.id);
+                    setConfirmDelete(null);
+                    setEditing(null);
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
             </motion.div>
           </motion.div>

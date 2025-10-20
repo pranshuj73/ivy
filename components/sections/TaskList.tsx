@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2, AlertTriangle, Pencil } from "lucide-react";
+import { Trash2, AlertTriangle, Pencil, MoreHorizontal } from "lucide-react";
 import HelpFAB from "./HelpFAB";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { Input } from "@/components/ui/input";
@@ -122,8 +122,9 @@ export default function TaskList() {
   const lastTapRef = useRef<number>(0);
   const longPressTimer = useRef<number | null>(null);
 
-  // Edit modal state (replaces browser prompts)
+  // Edit and delete modal state
   const [editModal, setEditModal] = useState<{ id: string; title: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     // Initialize and perform rollover
@@ -464,7 +465,7 @@ export default function TaskList() {
     selected: boolean;
     onSelect: (index: number) => void;
     onToggle: (id: string) => void;
-    onDelete: (id: string) => void;
+    onRequestDelete: (task: Task) => void;
     onEdit: (id: string, title: string) => void;
     animations: boolean;
     density: "comfortable" | "compact";
@@ -478,7 +479,7 @@ export default function TaskList() {
         selected,
         onSelect,
         onToggle,
-        onDelete,
+        onRequestDelete,
         onEdit,
         animations,
         density,
@@ -512,27 +513,41 @@ export default function TaskList() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Edit task"
-                  className="transition-all group-hover:rounded-r-none"
+                  aria-label="More"
+                  className="transition-all group-hover:hidden"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEdit(task.id, task.title);
                   }}
                 >
-                  <Pencil />
+                  <MoreHorizontal />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Delete task"
-                  className="w-0 opacity-0 group-hover:w-8 group-hover:opacity-100 transition-all rounded-l-none overflow-hidden"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(task.id);
-                  }}
-                >
-                  <Trash2 className="text-destructive" />
-                </Button>
+                <div className="hidden items-center gap-0 group-hover:flex">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Edit task"
+                    className="rounded-r-none"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(task.id, task.title);
+                    }}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Delete task"
+                    className="rounded-l-none"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestDelete(task);
+                    }}
+                  >
+                    <Trash2 className="text-destructive" />
+                  </Button>
+                </div>
               </div>
             </Card>
           </motion.li>
@@ -548,7 +563,7 @@ export default function TaskList() {
         selectedIndex,
         onSelect,
         onToggle,
-        onDelete,
+        onRequestDelete,
         onEdit,
         animations,
         density,
@@ -557,7 +572,7 @@ export default function TaskList() {
         selectedIndex: number | null;
         onSelect: (index: number) => void;
         onToggle: (id: string) => void;
-        onDelete: (id: string) => void;
+        onRequestDelete: (task: Task) => void;
         onEdit: (id: string, title: string) => void;
         animations: boolean;
         density: "comfortable" | "compact";
@@ -575,7 +590,7 @@ export default function TaskList() {
                   selected={selectedIndex === i}
                   onSelect={onSelect}
                   onToggle={onToggle}
-                  onDelete={onDelete}
+                  onRequestDelete={onRequestDelete}
                   onEdit={onEdit}
                   animations={animations}
                   density={density}
@@ -677,7 +692,7 @@ export default function TaskList() {
             selectedIndex={selectedIndex}
             onSelect={setSelectedIndex}
             onToggle={toggleTaskById}
-            onDelete={deleteTaskById}
+            onRequestDelete={(task) => setDeleteModal({ id: task.id, title: task.title })}
             onEdit={(id, title) => setEditModal({ id, title })}
             animations={animations}
             density={density}
@@ -690,46 +705,6 @@ export default function TaskList() {
             </div>
           )}
 
-          {/* Edit task dialog (scoped to center panel) */}
-          <AnimatePresence>
-            {editModal && (
-              <motion.div
-                key="edit-task"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="absolute inset-0 z-[60] grid place-items-center bg-black/40 p-4"
-                onClick={() => setEditModal(null)}
-              >
-                <motion.div
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: 10, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 28 }}
-                  className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="mb-2 text-sm font-medium">Edit task</div>
-                  <EditTaskForm
-                    id={editModal.id}
-                    initialTitle={editModal.title}
-                    onCancel={() => setEditModal(null)}
-                    onDelete={() => {
-                      deleteTaskById(editModal.id);
-                      setEditModal(null);
-                    }}
-                    onSave={(title) => {
-                      const trimmed = title.trim();
-                      if (!trimmed) return;
-                      editTaskTitle(editModal.id, trimmed);
-                      setEditModal(null);
-                    }}
-                  />
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </PanelContainer>
 
@@ -771,6 +746,45 @@ export default function TaskList() {
                   setEditModal(null);
                 }}
               />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete task confirm */}
+      <AnimatePresence>
+        {deleteModal && (
+          <motion.div
+            key="delete-task"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+            onClick={() => setDeleteModal(null)}
+          >
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 text-sm font-medium text-destructive">Delete task</div>
+              <div className="text-sm text-muted-foreground">Are you sure you want to delete “{deleteModal.title}”?</div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setDeleteModal(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    deleteTaskById(deleteModal.id);
+                    setDeleteModal(null);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
         )}
