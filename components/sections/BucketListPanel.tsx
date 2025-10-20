@@ -118,7 +118,7 @@ export default function BucketListPanel({
                     return (
                       <li
                         key={t.id}
-                        className={`flex items-center justify-between rounded-md px-3 py-2 transition-colors ${selectedClasses} ${selectMode ? "cursor-pointer" : ""}`}
+                        className={`group flex items-center justify-between rounded-md px-3 py-2 transition-colors ${selectedClasses} ${selectMode ? "cursor-pointer" : ""}`}
                         onClick={(e) => {
                           if (!selectMode) return;
                           const target = e.target as HTMLElement;
@@ -138,13 +138,13 @@ export default function BucketListPanel({
                             {t.title}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center overflow-hidden rounded-md" data-row-action>
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => setEditing({ id: t.id, title: t.title })}
                             aria-label="Edit task"
-                            data-row-action
+                            className="transition-all group-hover:rounded-r-none"
                           >
                             <Pencil className="size-4" />
                           </Button>
@@ -153,7 +153,7 @@ export default function BucketListPanel({
                             size="icon-sm"
                             onClick={() => onDelete(t.id)}
                             aria-label="Delete task"
-                            data-row-action
+                            className="w-0 opacity-0 group-hover:w-8 group-hover:opacity-100 transition-all rounded-l-none overflow-hidden"
                           >
                             <Trash2 className="size-4 text-destructive" />
                           </Button>
@@ -213,7 +213,7 @@ export default function BucketListPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+            className="absolute inset-0 z-[60] grid place-items-center bg-black/40 p-4"
             onClick={() => setEditing(null)}
           >
             <motion.div
