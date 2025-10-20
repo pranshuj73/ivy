@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertTriangle } from "lucide-react";
 import HelpFAB from "./HelpFAB";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { Input } from "@/components/ui/input";
@@ -75,7 +75,7 @@ export default function TaskList() {
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
-  const { animations, density } = useSettings();
+  const { animations, density, showCompleted } = useSettings();
   const { toast } = useToast();
 
   const nowTimer = useRef<number | null>(null);
@@ -152,6 +152,18 @@ export default function TaskList() {
   const completedCount = todaysAll.filter((t) => t.completed).length;
   const allDone = todaysAll.length > 0 && completedCount === todaysAll.length;
   const canAdd = todaysAll.length < 6; // Ivy Lee daily limit
+
+  const unfinishedToday = useMemo(
+    () => todaysAll.filter((t) => !t.completed),
+    [todaysAll],
+  );
+  const displayList = useMemo(() => {
+    const unfinished = todaysAll.filter((t) => !t.completed);
+    const finished = todaysAll.filter((t) => t.completed);
+    return showCompleted ? [...unfinished, ...finished] : unfinished;
+  }, [todaysAll, showCompleted]);
+
+  const availableSlots = Math.max(0, 6 - unfinishedToday.length);
 
   const colorClass = useMemo(() => {
     if (allDone) {
@@ -270,6 +282,7 @@ export default function TaskList() {
 
   // Keyboard shortcuts (use stable listener to avoid re-renders/flicker)
   const todaysAllRef = useRef<Task[]>([]);
+  const displayListRef = useRef<Task[]>([]);
   const selectedIndexRef = useRef<number | null>(null);
   const leftOpenRef = useRef(false);
   const rightOpenRef = useRef(false);
@@ -279,6 +292,9 @@ export default function TaskList() {
   useEffect(() => {
     todaysAllRef.current = todaysAll;
   }, [todaysAll]);
+  useEffect(() => {
+    displayListRef.current = displayList;
+  }, [displayList]);
   useEffect(() => {
     selectedIndexRef.current = selectedIndex;
   }, [selectedIndex]);
@@ -306,7 +322,7 @@ export default function TaskList() {
         ae?.getAttribute("contenteditable") === "true";
       if (isTyping) return;
 
-      const todays = todaysAllRef.current;
+      const todays = displayListRef.current;
       const sel = selectedIndexRef.current;
       const leftOpen = leftOpenRef.current;
       const rightOpen = rightOpenRef.current;
@@ -434,8 +450,9 @@ export default function TaskList() {
         setInputVisible(true);
       } else {
         // swipe down -> toggle selected
-        if (selectedIndex != null && todaysAll[selectedIndex]) {
-          toggleTaskById(todaysAll[selectedIndex].id);
+        const currentList = displayListRef.current;
+        if (selectedIndex != null && currentList[selectedIndex]) {
+          toggleTaskById(currentList[selectedIndex].id);
         }
       }
     }
@@ -572,17 +589,28 @@ export default function TaskList() {
             onToggle={toggleTaskById}
             onDelete={deleteTaskById}
             onEdit={editTaskTitle}
+            availableSlots={availableSlots}
             onImportSelected={(ids) => {
               if (!ids || ids.length === 0) return;
+              const slots = Math.max(0, 6 - unfinishedToday.length);
+              const allowedIds = ids.slice(0, slots);
+              if (allowedIds.length === 0) {
+                toast({
+                  title: "No slots available",
+                  description: "Complete tasks to free up slots before importing.",
+                  variant: "warning",
+                });
+                return;
+              }
               setTasks((prev) => {
-                const set = new Set(ids);
+                const set = new Set(allowedIds);
                 const next = prev.map((t) =>
                   set.has(t.id)
                     ? { ...t, dueDate: today, rolledOver: false }
                     : t,
                 );
                 // Persist updates for imported tasks
-                ids.forEach((id) =>
+                allowedIds.forEach((id) =>
                   storageAdapter.updateTask(id, {
                     dueDate: today,
                     rolledOver: false,
@@ -590,6 +618,18 @@ export default function TaskList() {
                 );
                 return next;
               });
+              if (allowedIds.length < ids.length) {
+                toast({
+                  title: `Imported ${allowedIds.length} task${allowedIds.length > 1 ? "s" : ""}`,
+                  description: `${ids.length - allowedIds.length} couldn't be imported due to the 6-task limit.`,
+                  variant: "warning",
+                });
+              } else {
+                toast({
+                  title: `Imported ${allowedIds.length} task${allowedIds.length > 1 ? "s" : ""}`,
+                  variant: "success",
+                });
+              }
             }}
           />
         }
@@ -613,7 +653,7 @@ export default function TaskList() {
           </div>
 
           <TaskItems
-            items={todaysAll}
+            items={displayList}
             selectedIndex={selectedIndex}
             onSelect={setSelectedIndex}
             onToggle={toggleTaskById}
@@ -623,9 +663,10 @@ export default function TaskList() {
           />
 
           {!canAdd && (
-            <p className="mt-2 text-xs text-destructive">
-              Daily focus limit reached (6). Complete tasks to add more.
-            </p>
+            <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              <span>Daily focus limit reached (6). Complete tasks to add more.</span>
+            </div>
           )}
         </div>
       </PanelContainer>

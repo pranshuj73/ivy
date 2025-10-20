@@ -16,9 +16,11 @@ export type SettingsState = {
   theme: ThemeMode;
   density: Density;
   animations: boolean;
+  showCompleted: boolean;
   setTheme: (t: ThemeMode) => void;
   setDensity: (d: Density) => void;
   setAnimations: (on: boolean) => void;
+  setShowCompleted: (on: boolean) => void;
 };
 
 const SettingsContext = createContext<SettingsState | null>(null);
@@ -29,6 +31,7 @@ function readSettings(): {
   theme: ThemeMode;
   density: Density;
   animations: boolean;
+  showCompleted?: boolean;
 } | null {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -42,6 +45,7 @@ function writeSettings(value: {
   theme: ThemeMode;
   density: Density;
   animations: boolean;
+  showCompleted: boolean;
 }) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(value));
@@ -71,6 +75,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>("system");
   const [density, setDensityState] = useState<Density>("comfortable");
   const [animations, setAnimationsState] = useState<boolean>(true);
+  const [showCompleted, setShowCompletedState] = useState<boolean>(true);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -79,6 +84,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setThemeState(saved.theme);
       setDensityState(saved.density);
       setAnimationsState(saved.animations);
+      setShowCompletedState(saved.showCompleted ?? true);
       // apply immediately
       applyThemeClass(saved.theme);
       applyDensityClass(saved.density);
@@ -88,6 +94,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       applyThemeClass("system");
       applyDensityClass("comfortable");
       applyAnimationsClass(true);
+      setShowCompletedState(true);
     }
   }, []);
 
@@ -104,32 +111,40 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     (t: ThemeMode) => {
       setThemeState(t);
       applyThemeClass(t);
-      writeSettings({ theme: t, density, animations });
+      writeSettings({ theme: t, density, animations, showCompleted });
     },
-    [density, animations],
+    [density, animations, showCompleted],
   );
 
   const setDensity = useCallback(
     (d: Density) => {
       setDensityState(d);
       applyDensityClass(d);
-      writeSettings({ theme, density: d, animations });
+      writeSettings({ theme, density: d, animations, showCompleted });
     },
-    [theme, animations],
+    [theme, animations, showCompleted],
   );
 
   const setAnimations = useCallback(
     (on: boolean) => {
       setAnimationsState(on);
       applyAnimationsClass(on);
-      writeSettings({ theme, density, animations: on });
+      writeSettings({ theme, density, animations: on, showCompleted });
     },
-    [theme, density],
+    [theme, density, showCompleted],
+  );
+
+  const setShowCompleted = useCallback(
+    (on: boolean) => {
+      setShowCompletedState(on);
+      writeSettings({ theme, density, animations, showCompleted: on });
+    },
+    [theme, density, animations],
   );
 
   const value = useMemo<SettingsState>(
-    () => ({ theme, density, animations, setTheme, setDensity, setAnimations }),
-    [theme, density, animations, setTheme, setDensity, setAnimations],
+    () => ({ theme, density, animations, showCompleted, setTheme, setDensity, setAnimations, setShowCompleted }),
+    [theme, density, animations, showCompleted, setTheme, setDensity, setAnimations, setShowCompleted],
   );
 
   return (

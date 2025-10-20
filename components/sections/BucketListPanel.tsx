@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AnimatePresence, motion } from "framer-motion";
+import { useSettings } from "@/components/providers/SettingsProvider";
+import { toDateString } from "@/lib/date";
 
 export type BucketListPanelProps = {
   buckets: Bucket[];
@@ -16,6 +18,7 @@ export type BucketListPanelProps = {
   onDelete: (taskId: string) => void;
   onEdit: (taskId: string, title: string) => void;
   onImportSelected?: (taskIds: string[]) => void;
+  availableSlots?: number; // optional hint from parent
 };
 
 export default function BucketListPanel({
@@ -25,15 +28,25 @@ export default function BucketListPanel({
   onDelete,
   onEdit,
   onImportSelected,
+  availableSlots,
 }: BucketListPanelProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
   const [draft, setDraft] = useState("");
+  const { showCompleted } = useSettings();
+
   useEffect(() => {
     setDraft(editing?.title ?? "");
   }, [editing]);
+
+  const today = useMemo(() => toDateString(new Date()), []);
+  const unfinishedToday = useMemo(
+    () => tasks.filter((t) => t.dueDate === today && !t.completed).length,
+    [tasks, today],
+  );
+  const slots = Math.max(0, (availableSlots ?? 6 - unfinishedToday));
 
   const grouped = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -68,6 +81,9 @@ export default function BucketListPanel({
         {grouped.map(([bucketId, list]) => {
           const bucket = buckets.find((b) => b.id === bucketId);
           const isCollapsed = !!collapsed[bucketId];
+          const listForRender = (showCompleted ? list : list.filter((t) => !t.completed))
+            .slice()
+            .sort((a, b) => Number(a.completed) - Number(b.completed));
           return (
             <div
               key={bucketId}
@@ -91,12 +107,12 @@ export default function BucketListPanel({
               </button>
               {!isCollapsed && (
                 <ul className="divide-y divide-border/80">
-                  {list.length === 0 && (
+                  {listForRender.length === 0 && (
                     <li className="p-3 text-xs text-muted-foreground">
                       No tasks
                     </li>
                   )}
-                  {list.map((t) => {
+                  {listForRender.map((t) => {
                     const isSelected = selected.has(t.id);
                     const selectedClasses = selectMode && isSelected ? "bg-primary/10 ring-2 ring-primary/60" : "";
                     return (
@@ -160,18 +176,18 @@ export default function BucketListPanel({
           </Button>
         ) : (
           <div>
-            <div className="mb-2 text-xs text-muted-foreground">{selected.size} selected</div>
+            <div className="mb-2 text-xs text-muted-foreground">{selected.size} selected • {Math.min(selected.size, slots)} can import</div>
             <div className="flex gap-2">
               <Button
                 className="gap-2 flex-1"
-                disabled={selected.size === 0}
+                disabled={selected.size === 0 || slots === 0}
                 onClick={() => {
-                  if (onImportSelected) onImportSelected(Array.from(selected));
+                  if (onImportSelected) onImportSelected(Array.from(selected).slice(0, slots));
                   clearSelection();
                   setSelectMode(false);
                 }}
               >
-                <PlusCircle className="size-4" /> Import
+                <PlusCircle className="size-4" /> Import {Math.min(selected.size, slots)}
               </Button>
               <Button
                 variant="secondary"
@@ -219,7 +235,7 @@ export default function BucketListPanel({
                       e.preventDefault();
                       const t = draft.trim();
                       if (t) {
-                        onEdit(editing.id, t);
+                        onEdit(editing!.id, t);
                         setEditing(null);
                       }
                     }
@@ -230,9 +246,9 @@ export default function BucketListPanel({
                   }}
                 />
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="destructive" onClick={() => { onDelete(editing.id); setEditing(null); }}>Delete</Button>
+                  <Button variant="destructive" onClick={() => { onDelete(editing!.id); setEditing(null); }}>Delete</Button>
                   <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-                  <Button onClick={() => { const t = draft.trim(); if (t) { onEdit(editing.id, t); setEditing(null); } }} disabled={draft.trim().length === 0}>Save</Button>
+                  <Button onClick={() => { const t = draft.trim(); if (t) { onEdit(editing!.id, t); setEditing(null); } }} disabled={draft.trim().length === 0}>Save</Button>
                 </div>
               </div>
             </motion.div>
