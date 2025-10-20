@@ -19,6 +19,7 @@ import HelpFAB from "./HelpFAB";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/providers/ToastProvider";
+import { Eye, EyeOff, ListFilter } from "lucide-react";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -32,7 +33,13 @@ type EditTaskFormProps = {
   onDelete: () => void;
 };
 
-function EditTaskForm({ id: _id, initialTitle, onSave, onCancel, onDelete }: EditTaskFormProps) {
+function EditTaskForm({
+  id: _id,
+  initialTitle,
+  onSave,
+  onCancel,
+  onDelete,
+}: EditTaskFormProps) {
   const [title, setTitle] = useState(initialTitle);
   useEffect(() => setTitle(initialTitle), [initialTitle]);
   const disabled = title.trim().length === 0;
@@ -54,9 +61,15 @@ function EditTaskForm({ id: _id, initialTitle, onSave, onCancel, onDelete }: Edi
         }}
       />
       <div className="flex items-center justify-end gap-2">
-        <Button variant="destructive" onClick={onDelete}>Delete</Button>
-        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-        <Button onClick={() => onSave(title)} disabled={disabled}>Save</Button>
+        <Button variant="destructive" onClick={onDelete}>
+          Delete
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={() => onSave(title)} disabled={disabled}>
+          Save
+        </Button>
       </div>
     </div>
   );
@@ -75,7 +88,8 @@ export default function TaskList() {
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
-  const { animations, density, showCompleted } = useSettings();
+  const { animations, density, showCompleted, setShowCompleted } =
+    useSettings();
   const { toast } = useToast();
 
   const nowTimer = useRef<number | null>(null);
@@ -123,8 +137,14 @@ export default function TaskList() {
   const longPressTimer = useRef<number | null>(null);
 
   // Edit and delete modal state
-  const [editModal, setEditModal] = useState<{ id: string; title: string } | null>(null);
-  const [deleteModal, setDeleteModal] = useState<{ id: string; title: string } | null>(null);
+  const [editModal, setEditModal] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     // Initialize and perform rollover
@@ -224,9 +244,7 @@ export default function TaskList() {
     const title = raw.replace(/\s+$/, "").trim();
     if (!title) return;
     const bucket = parseBucketFromInput(title);
-    const cleanTitle = title
-      .replace(/@([^\s@]+)/, () => "")
-      .trim();
+    const cleanTitle = title.replace(/@([^\s@]+)/, () => "").trim();
 
     const due = canAdd ? today : null;
 
@@ -247,7 +265,8 @@ export default function TaskList() {
     } else {
       toast({
         title: `Added to ${bucket.name}`,
-        description: "Daily focus limit reached. The task was added to the bucket backlog.",
+        description:
+          "Daily focus limit reached. The task was added to the bucket backlog.",
         variant: "warning",
       });
     }
@@ -491,7 +510,12 @@ export default function TaskList() {
             initial={animations ? { opacity: 0, y: 6 } : false}
             animate={animations ? { opacity: 1, y: 0 } : undefined}
             exit={animations ? { opacity: 0, y: -6 } : undefined}
-            transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.6 }}
+            transition={{
+              type: "spring",
+              stiffness: 400,
+              damping: 30,
+              mass: 0.6,
+            }}
             className="list-none"
             onClick={() => onSelect(index)}
           >
@@ -632,7 +656,8 @@ export default function TaskList() {
               if (allowedIds.length === 0) {
                 toast({
                   title: "No slots available",
-                  description: "Complete tasks to free up slots before importing.",
+                  description:
+                    "Complete tasks to free up slots before importing.",
                   variant: "warning",
                 });
                 return;
@@ -683,8 +708,30 @@ export default function TaskList() {
             date={dateTime}
           />
 
-          <div className="pb-2 text-sm text-muted-foreground">
-            {completedCount}/{Math.max(6, todaysAll.length)} completed
+          <div className="flex items-center justify-between text-sm mb-4">
+            <div className="text-muted-foreground">
+              {completedCount}/{Math.max(6, todaysAll.length)} completed
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-xs h-6"
+              onClick={() => setShowCompleted(!showCompleted)}
+              aria-pressed={!showCompleted}
+              aria-label={
+                showCompleted ? "Hide completed tasks" : "Show completed tasks"
+              }
+            >
+              {showCompleted ? (
+                <>
+                  <EyeOff className="size-3" /> Hide completed
+                </>
+              ) : (
+                <>
+                  <Eye className="size-3" /> Show completed
+                </>
+              )}
+            </Button>
           </div>
 
           <TaskItems
@@ -692,7 +739,9 @@ export default function TaskList() {
             selectedIndex={selectedIndex}
             onSelect={setSelectedIndex}
             onToggle={toggleTaskById}
-            onRequestDelete={(task) => setDeleteModal({ id: task.id, title: task.title })}
+            onRequestDelete={(task) =>
+              setDeleteModal({ id: task.id, title: task.title })
+            }
             onEdit={(id, title) => setEditModal({ id, title })}
             animations={animations}
             density={density}
@@ -701,10 +750,11 @@ export default function TaskList() {
           {!canAdd && (
             <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive flex items-center gap-2">
               <AlertTriangle className="size-4" />
-              <span>Daily focus limit reached (6). Complete tasks to add more.</span>
+              <span>
+                Daily focus limit reached (6). Complete tasks to add more.
+              </span>
             </div>
           )}
-
         </div>
       </PanelContainer>
 
@@ -771,10 +821,19 @@ export default function TaskList() {
               className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="mb-2 text-sm font-medium text-destructive">Delete task</div>
-              <div className="text-sm text-muted-foreground">Are you sure you want to delete “{deleteModal.title}”?</div>
+              <div className="mb-2 text-sm font-medium text-destructive">
+                Delete task
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Are you sure you want to delete “{deleteModal.title}”?
+              </div>
               <div className="mt-4 flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setDeleteModal(null)}>Cancel</Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setDeleteModal(null)}
+                >
+                  Cancel
+                </Button>
                 <Button
                   variant="destructive"
                   onClick={() => {
