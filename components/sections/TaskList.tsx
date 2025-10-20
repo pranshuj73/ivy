@@ -390,8 +390,7 @@ export default function TaskList() {
   }: TaskRowProps) {
     return (
       <motion.li
-        layout
-        key={task.id}
+        layout="position"
         data-task-id={task.id}
         initial={animations ? { opacity: 0, y: 6 } : false}
         animate={animations ? { opacity: 1, y: 0 } : undefined}
@@ -427,6 +426,51 @@ export default function TaskList() {
           </Button>
         </Card>
       </motion.li>
+    );
+  });
+
+  const TaskItems = React.memo(function TaskItems({
+    items,
+    selectedIndex,
+    onSelect,
+    onToggle,
+    onDelete,
+    animations,
+    density,
+  }: {
+    items: Task[];
+    selectedIndex: number | null;
+    onSelect: (index: number) => void;
+    onToggle: (id: string) => void;
+    onDelete: (id: string) => void;
+    animations: boolean;
+    density: "comfortable" | "compact";
+  }) {
+    return (
+      <ul
+        className={`${density === "compact" ? "space-y-1" : "space-y-2"} flex-1 overflow-y-auto overflow-x-hidden`}
+      >
+        <AnimatePresence initial={false}>
+          {items.map((task, i) => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              index={i}
+              selected={selectedIndex === i}
+              onSelect={onSelect}
+              onToggle={onToggle}
+              onDelete={onDelete}
+              animations={animations}
+              density={density}
+            />
+          ))}
+        </AnimatePresence>
+        {items.length === 0 && (
+          <li className="py-6 text-center text-sm text-muted-foreground">
+            No tasks for today.
+          </li>
+        )}
+      </ul>
     );
   });
 
@@ -485,30 +529,15 @@ export default function TaskList() {
             {completedCount}/{Math.max(6, todaysAll.length)} completed
           </div>
 
-          <ul
-            className={`${density === "compact" ? "space-y-1" : "space-y-2"} flex-1 overflow-y-auto overflow-x-hidden`}
-          >
-            <AnimatePresence initial={false}>
-              {todaysAll.map((task, i) => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  index={i}
-                  selected={selectedIndex === i}
-                  onSelect={setSelectedIndex}
-                  onToggle={toggleTaskById}
-                  onDelete={deleteTaskById}
-                  animations={animations}
-                  density={density}
-                />
-              ))}
-            </AnimatePresence>
-            {todaysAll.length === 0 && (
-              <li className="py-6 text-center text-sm text-muted-foreground">
-                No tasks for today.
-              </li>
-            )}
-          </ul>
+          <TaskItems
+            items={todaysAll}
+            selectedIndex={selectedIndex}
+            onSelect={setSelectedIndex}
+            onToggle={toggleTaskById}
+            onDelete={deleteTaskById}
+            animations={animations}
+            density={density}
+          />
 
           {!canAdd && (
             <p className="mt-2 text-xs text-destructive">
