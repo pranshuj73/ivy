@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import type { Bucket } from "@/types/bucket";
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, CheckSquare, PlusCircle, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,7 @@ export default function BucketListPanel({
 }: BucketListPanelProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -94,10 +95,11 @@ export default function BucketListPanel({
                       <li
                         key={t.id}
                         className={`flex items-center justify-between px-3 py-2 ${
-                          isSelected ? "bg-secondary/60" : ""
-                        }`}
+                          selectMode && isSelected ? "bg-secondary/60" : ""
+                        } ${selectMode ? "cursor-pointer" : ""}`}
                         onClick={(e) => {
                           // Only toggle selection when clicking the row itself, not the inner controls
+                          if (!selectMode) return;
                           const target = e.target as HTMLElement;
                           if (target.closest("[data-row-action]") || target.closest("input")) return;
                           toggleSelect(t.id);
@@ -116,15 +118,6 @@ export default function BucketListPanel({
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant={isSelected ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => toggleSelect(t.id)}
-                            aria-label={isSelected ? "Deselect task" : "Select task"}
-                            data-row-action
-                          >
-                            {isSelected ? "Selected" : "Select"}
-                          </Button>
                           <Button
                             variant="ghost"
                             size="icon-sm"
@@ -163,19 +156,43 @@ export default function BucketListPanel({
         })}
       </div>
 
-      {selected.size > 0 && onImportSelected && (
-        <div className="pointer-events-none absolute right-[-0.5rem] top-1/2 z-30 -translate-y-1/2">
-          <Button
-            className="pointer-events-auto rounded-full shadow-md"
-            onClick={() => {
-              onImportSelected(Array.from(selected));
-              clearSelection();
-            }}
-          >
-            Import {selected.size}
-          </Button>
-        </div>
-      )}
+      {/* Sticky bottom controls */}
+      <div className="sticky bottom-0 -mx-4 px-4 pt-2 bg-gradient-to-t from-card to-transparent">
+        {!selectMode ? (
+          <div className="flex justify-end">
+            <Button variant="outline" className="gap-2" onClick={() => setSelectMode(true)}>
+              <CheckSquare className="size-4" /> Select
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-muted-foreground">{selected.size} selected</div>
+            <div className="flex gap-2">
+              <Button
+                className="gap-2"
+                disabled={selected.size === 0}
+                onClick={() => {
+                  if (onImportSelected) onImportSelected(Array.from(selected));
+                  clearSelection();
+                  setSelectMode(false);
+                }}
+              >
+                <PlusCircle className="size-4" /> Import
+              </Button>
+              <Button
+                variant="secondary"
+                className="gap-2"
+                onClick={() => {
+                  clearSelection();
+                  setSelectMode(false);
+                }}
+              >
+                <XCircle className="size-4" /> Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

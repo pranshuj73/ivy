@@ -43,6 +43,37 @@ export default function TaskList() {
     return `${toDateString(d)} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   });
 
+  // Anchor measurement for input overlay width alignment with center panel
+  const containerRef = useRef<HTMLDivElement>(null);
+  const centerRef = useRef<HTMLDivElement>(null);
+  const [anchorLeft, setAnchorLeft] = useState<number | undefined>();
+  const [anchorWidth, setAnchorWidth] = useState<number | undefined>();
+
+  const measureAnchor = React.useCallback(() => {
+    const center = centerRef.current;
+    const container = containerRef.current;
+    if (!center || !container) return;
+    const cRect = center.getBoundingClientRect();
+    const pRect = container.getBoundingClientRect();
+    setAnchorLeft(cRect.left - pRect.left);
+    setAnchorWidth(cRect.width);
+  }, []);
+
+  useEffect(() => {
+    measureAnchor();
+    const onResize = () => measureAnchor();
+    window.addEventListener("resize", onResize);
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined" && centerRef.current) {
+      ro = new ResizeObserver(() => measureAnchor());
+      ro.observe(centerRef.current);
+    }
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (ro && centerRef.current) ro.unobserve(centerRef.current);
+    };
+  }, [measureAnchor, leftOpen, rightOpen]);
+
   // Gesture helpers
   const touchStart = useRef<{ x: number; y: number; time: number } | null>(
     null,
@@ -378,104 +409,112 @@ export default function TaskList() {
     density: "comfortable" | "compact";
   };
 
-  const TaskRow = React.memo(function TaskRow({
-    task,
-    index,
-    selected,
-    onSelect,
-    onToggle,
-    onDelete,
-    animations,
-    density,
-  }: TaskRowProps) {
-    return (
-      <motion.li
-        layout="position"
-        data-task-id={task.id}
-        initial={animations ? { opacity: 0, y: 6 } : false}
-        animate={animations ? { opacity: 1, y: 0 } : undefined}
-        exit={animations ? { opacity: 0, y: -6 } : undefined}
-        transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.6 }}
-        className="list-none"
-        onClick={() => onSelect(index)}
-      >
-        <Card
-          className={`group flex items-center justify-between ${density === "compact" ? "px-2 py-1" : "p-2"} ${selected ? "ring-2 ring-sky-400" : ""}`}
-        >
-          <div className="flex items-center gap-3">
-            <Checkbox
-              checked={task.completed}
-              onCheckedChange={() => onToggle(task.id)}
-            />
-            <span
-              className={`text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
-            >
-              {task.title}
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Delete task"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id);
-            }}
+  const TaskRow = React.useMemo(
+    () =>
+      React.memo(function TaskRow({
+        task,
+        index,
+        selected,
+        onSelect,
+        onToggle,
+        onDelete,
+        animations,
+        density,
+      }: TaskRowProps) {
+        return (
+          <motion.li
+            layout="position"
+            data-task-id={task.id}
+            initial={animations ? { opacity: 0, y: 6 } : false}
+            animate={animations ? { opacity: 1, y: 0 } : undefined}
+            exit={animations ? { opacity: 0, y: -6 } : undefined}
+            transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.6 }}
+            className="list-none"
+            onClick={() => onSelect(index)}
           >
-            <Trash2 className="text-destructive" />
-          </Button>
-        </Card>
-      </motion.li>
-    );
-  });
+            <Card
+              className={`group flex items-center justify-between ${density === "compact" ? "px-2 py-1" : "p-2"} ${selected ? "ring-2 ring-sky-400" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={task.completed}
+                  onCheckedChange={() => onToggle(task.id)}
+                />
+                <span
+                  className={`text-sm ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                >
+                  {task.title}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Delete task"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(task.id);
+                }}
+              >
+                <Trash2 className="text-destructive" />
+              </Button>
+            </Card>
+          </motion.li>
+        );
+      }),
+    [],
+  );
 
-  const TaskItems = React.memo(function TaskItems({
-    items,
-    selectedIndex,
-    onSelect,
-    onToggle,
-    onDelete,
-    animations,
-    density,
-  }: {
-    items: Task[];
-    selectedIndex: number | null;
-    onSelect: (index: number) => void;
-    onToggle: (id: string) => void;
-    onDelete: (id: string) => void;
-    animations: boolean;
-    density: "comfortable" | "compact";
-  }) {
-    return (
-      <ul
-        className={`${density === "compact" ? "space-y-1" : "space-y-2"} flex-1 overflow-y-auto overflow-x-hidden`}
-      >
-        <AnimatePresence initial={false}>
-          {items.map((task, i) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              index={i}
-              selected={selectedIndex === i}
-              onSelect={onSelect}
-              onToggle={onToggle}
-              onDelete={onDelete}
-              animations={animations}
-              density={density}
-            />
-          ))}
-        </AnimatePresence>
-        {items.length === 0 && (
-          <li className="py-6 text-center text-sm text-muted-foreground">
-            No tasks for today.
-          </li>
-        )}
-      </ul>
-    );
-  });
+  const TaskItems = React.useMemo(
+    () =>
+      React.memo(function TaskItems({
+        items,
+        selectedIndex,
+        onSelect,
+        onToggle,
+        onDelete,
+        animations,
+        density,
+      }: {
+        items: Task[];
+        selectedIndex: number | null;
+        onSelect: (index: number) => void;
+        onToggle: (id: string) => void;
+        onDelete: (id: string) => void;
+        animations: boolean;
+        density: "comfortable" | "compact";
+      }) {
+        return (
+          <ul
+            className={`${density === "compact" ? "space-y-1" : "space-y-2"} flex-1 overflow-y-auto overflow-x-hidden`}
+          >
+            <AnimatePresence initial={false}>
+              {items.map((task, i) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  index={i}
+                  selected={selectedIndex === i}
+                  onSelect={onSelect}
+                  onToggle={onToggle}
+                  onDelete={onDelete}
+                  animations={animations}
+                  density={density}
+                />
+              ))}
+            </AnimatePresence>
+            {items.length === 0 && (
+              <li className="py-6 text-center text-sm text-muted-foreground">
+                No tasks for today.
+              </li>
+            )}
+          </ul>
+        );
+      }),
+    [],
+  );
 
   return (
-    <div className="relative h-full">
+    <div className="relative h-full" ref={containerRef}>
       <PanelContainer
         leftOpen={leftOpen}
         rightOpen={rightOpen}
@@ -517,6 +556,7 @@ export default function TaskList() {
           className="h-full min-h-0 p-6 bg-card text-card-foreground rounded-xl shadow flex flex-col select-none overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          ref={centerRef}
         >
           <Header
             className="pt-6 pb-4"
@@ -557,6 +597,8 @@ export default function TaskList() {
         onSubmit={() => addTaskFromInput(inputValue)}
         onClose={() => setInputVisible(false)}
         buckets={buckets}
+        anchorLeft={anchorLeft}
+        anchorWidth={anchorWidth}
       />
     </div>
   );

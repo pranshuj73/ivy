@@ -65,6 +65,11 @@ export default function CalendarPanel({
           {monthName}
         </h2>
       </div>
+      <div className="grid grid-cols-7 gap-2 mb-2 text-xs text-muted-foreground text-center">
+        {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
+          <div key={d} className="py-1">{d}</div>
+        ))}
+      </div>
       <div className="grid grid-cols-7 gap-2">
         {grid.map((d, i) => (
           <div
