@@ -65,16 +65,21 @@ export default function CalendarPanel({
           {monthName}
         </h2>
       </div>
+      <div className="grid grid-cols-7 gap-2 mb-2 text-xs text-muted-foreground text-center">
+        {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
+          <div key={d} className="py-1">{d}</div>
+        ))}
+      </div>
       <div className="grid grid-cols-7 gap-2">
         {grid.map((d, i) => (
           <div
             key={i}
-            className={`aspect-square rounded-md border border-border/80 p-1 text-center text-sm transition-colors hover:opacity-90 ${
+            className={`aspect-square rounded-md border border-border/80 text-sm transition-colors hover:opacity-90 flex items-center justify-center ${
               d ? colorForDate(d) : "bg-transparent border-transparent"
             }`}
             title={d ? toDateString(d) : ""}
           >
-            {d && <span>{d.getDate()}</span>}
+            {d && <span className="leading-none">{d.getDate()}</span>}
           </div>
         ))}
       </div>

@@ -8,20 +8,26 @@ import { AnimatePresence, motion } from "framer-motion";
 export default function HelpFAB({ hidden = false }: { hidden?: boolean }) {
   const [open, setOpen] = React.useState(false);
 
-  if (hidden) return null;
+  React.useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("ivylee:open-help", onOpen as EventListener);
+    return () => window.removeEventListener("ivylee:open-help", onOpen as EventListener);
+  }, []);
 
   return (
     <>
-      <div className="fixed bottom-5 right-5 z-40">
-        <Button
-          variant="secondary"
-          size="lg"
-          className="rounded-full shadow-md"
-          onClick={() => setOpen(true)}
-        >
-          <HelpCircle /> Help
-        </Button>
-      </div>
+      {!hidden && (
+        <div className="fixed bottom-5 right-5 z-40">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="rounded-full shadow-md"
+            onClick={() => setOpen(true)}
+          >
+            <HelpCircle /> Help
+          </Button>
+        </div>
+      )}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -47,6 +53,7 @@ export default function HelpFAB({ hidden = false }: { hidden?: boolean }) {
                 <li>x: toggle done</li>
                 <li>c or n: quick add</li>
                 <li>b: toggle side panels</li>
+                <li>h: open help</li>
                 <li>Esc: close panels or input</li>
                 <li>Use @bucket to assign while adding</li>
               </ul>

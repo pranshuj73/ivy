@@ -39,6 +39,7 @@ export default function PanelContainer({
               damping: 30,
               mass: 0.6,
             }}
+            // Keep overlay below the sliding panels so they remain interactive.
             className="pointer-events-auto absolute inset-0 z-10 bg-black"
             onClick={onOverlayClick}
             aria-hidden
@@ -48,7 +49,7 @@ export default function PanelContainer({
 
       <div className="grid h-full min-h-0 grid-cols-7 gap-4 px-4 py-2">
         {/* Left panel slot (2) */}
-        <div className="col-span-2 relative h-full min-h-0 overflow-hidden">
+        <div className="col-span-2 relative z-20 h-full min-h-0 overflow-hidden">
           <motion.div
             aria-hidden={!leftOpen}
             initial={false}
@@ -73,7 +74,7 @@ export default function PanelContainer({
         </motion.div>
 
         {/* Right panel slot (2) */}
-        <div className="col-span-2 relative h-full min-h-0 overflow-hidden">
+        <div className="col-span-2 relative z-20 h-full min-h-0 overflow-hidden">
           <motion.div
             aria-hidden={!rightOpen}
             initial={false}
