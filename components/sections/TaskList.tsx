@@ -18,6 +18,7 @@ import { Trash2 } from "lucide-react";
 import HelpFAB from "./HelpFAB";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/providers/ToastProvider";
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -75,6 +76,7 @@ export default function TaskList() {
   const [inputValue, setInputValue] = useState("");
 
   const { animations, density } = useSettings();
+  const { toast } = useToast();
 
   const nowTimer = useRef<number | null>(null);
   const [dateTime, setDateTime] = useState<string>(() => {
@@ -207,27 +209,36 @@ export default function TaskList() {
 
   function addTaskFromInput(raw: string) {
     const title = raw.replace(/\s+$/, "").trim();
-    if (!title || !canAdd) return;
+    if (!title) return;
     const bucket = parseBucketFromInput(title);
     const cleanTitle = title
-      .replace(/@([^\s@]+)/, (m) => {
-        // keep the mention text as-is in the title, or remove? Keep it out for clarity
-        return "";
-      })
+      .replace(/@([^\s@]+)/, () => "")
       .trim();
+
+    const due = canAdd ? today : null;
 
     const task: Task = {
       id: uid(),
-      title: cleanTitle || title, // if removing mention results empty, keep original
+      title: cleanTitle || title,
       completed: false,
       bucketId: bucket.id,
       createdAt: new Date().toISOString(),
-      dueDate: today,
+      dueDate: due,
       rolledOver: false,
     };
     const next = [...tasks, task];
     persistTasks(next);
-    setSelectedIndex(todaysAll.length); // focus the new task index
+
+    if (canAdd) {
+      setSelectedIndex(todaysAll.length); // focus the new task index
+    } else {
+      toast({
+        title: `Added to ${bucket.name}`,
+        description: "Daily focus limit reached. The task was added to the bucket backlog.",
+        variant: "warning",
+      });
+    }
+
     setInputValue("");
     setInputVisible(false);
   }
