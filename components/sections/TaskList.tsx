@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertTriangle, Pencil, MoreHorizontal } from "lucide-react";
 import HelpFAB from "./HelpFAB";
 import { useSettings } from "@/components/providers/SettingsProvider";
 import { Input } from "@/components/ui/input";
@@ -75,7 +75,7 @@ export default function TaskList() {
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState("");
 
-  const { animations, density } = useSettings();
+  const { animations, density, showCompleted } = useSettings();
   const { toast } = useToast();
 
   const nowTimer = useRef<number | null>(null);
@@ -122,8 +122,9 @@ export default function TaskList() {
   const lastTapRef = useRef<number>(0);
   const longPressTimer = useRef<number | null>(null);
 
-  // Edit modal state (replaces browser prompts)
+  // Edit and delete modal state
   const [editModal, setEditModal] = useState<{ id: string; title: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     // Initialize and perform rollover
@@ -151,7 +152,19 @@ export default function TaskList() {
   );
   const completedCount = todaysAll.filter((t) => t.completed).length;
   const allDone = todaysAll.length > 0 && completedCount === todaysAll.length;
-  const canAdd = todaysAll.length < 6; // Ivy Lee daily limit
+
+  const unfinishedToday = useMemo(
+    () => todaysAll.filter((t) => !t.completed),
+    [todaysAll],
+  );
+  const canAdd = unfinishedToday.length < 6; // Limit applies to unfinished tasks
+  const displayList = useMemo(() => {
+    const unfinished = todaysAll.filter((t) => !t.completed);
+    const finished = todaysAll.filter((t) => t.completed);
+    return showCompleted ? [...unfinished, ...finished] : unfinished;
+  }, [todaysAll, showCompleted]);
+
+  const availableSlots = Math.max(0, 6 - unfinishedToday.length);
 
   const colorClass = useMemo(() => {
     if (allDone) {
@@ -270,6 +283,7 @@ export default function TaskList() {
 
   // Keyboard shortcuts (use stable listener to avoid re-renders/flicker)
   const todaysAllRef = useRef<Task[]>([]);
+  const displayListRef = useRef<Task[]>([]);
   const selectedIndexRef = useRef<number | null>(null);
   const leftOpenRef = useRef(false);
   const rightOpenRef = useRef(false);
@@ -279,6 +293,9 @@ export default function TaskList() {
   useEffect(() => {
     todaysAllRef.current = todaysAll;
   }, [todaysAll]);
+  useEffect(() => {
+    displayListRef.current = displayList;
+  }, [displayList]);
   useEffect(() => {
     selectedIndexRef.current = selectedIndex;
   }, [selectedIndex]);
@@ -306,7 +323,7 @@ export default function TaskList() {
         ae?.getAttribute("contenteditable") === "true";
       if (isTyping) return;
 
-      const todays = todaysAllRef.current;
+      const todays = displayListRef.current;
       const sel = selectedIndexRef.current;
       const leftOpen = leftOpenRef.current;
       const rightOpen = rightOpenRef.current;
@@ -434,8 +451,9 @@ export default function TaskList() {
         setInputVisible(true);
       } else {
         // swipe down -> toggle selected
-        if (selectedIndex != null && todaysAll[selectedIndex]) {
-          toggleTaskById(todaysAll[selectedIndex].id);
+        const currentList = displayListRef.current;
+        if (selectedIndex != null && currentList[selectedIndex]) {
+          toggleTaskById(currentList[selectedIndex].id);
         }
       }
     }
@@ -447,7 +465,8 @@ export default function TaskList() {
     selected: boolean;
     onSelect: (index: number) => void;
     onToggle: (id: string) => void;
-    onDelete: (id: string) => void;
+    onRequestDelete: (task: Task) => void;
+    onEdit: (id: string, title: string) => void;
     animations: boolean;
     density: "comfortable" | "compact";
   };
@@ -460,7 +479,8 @@ export default function TaskList() {
         selected,
         onSelect,
         onToggle,
-        onDelete,
+        onRequestDelete,
+        onEdit,
         animations,
         density,
       }: TaskRowProps) {
@@ -489,17 +509,46 @@ export default function TaskList() {
                   {task.title}
                 </span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Delete task"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(task.id);
-                }}
-              >
-                <Trash2 className="text-destructive" />
-              </Button>
+              <div className="flex items-center overflow-hidden rounded-md">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="More"
+                  className="transition-all group-hover:hidden"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(task.id, task.title);
+                  }}
+                >
+                  <MoreHorizontal />
+                </Button>
+                <div className="hidden items-center gap-0 group-hover:flex">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Edit task"
+                    className="rounded-r-none"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(task.id, task.title);
+                    }}
+                  >
+                    <Pencil />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Delete task"
+                    className="rounded-l-none"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestDelete(task);
+                    }}
+                  >
+                    <Trash2 className="text-destructive" />
+                  </Button>
+                </div>
+              </div>
             </Card>
           </motion.li>
         );
@@ -514,7 +563,8 @@ export default function TaskList() {
         selectedIndex,
         onSelect,
         onToggle,
-        onDelete,
+        onRequestDelete,
+        onEdit,
         animations,
         density,
       }: {
@@ -522,7 +572,8 @@ export default function TaskList() {
         selectedIndex: number | null;
         onSelect: (index: number) => void;
         onToggle: (id: string) => void;
-        onDelete: (id: string) => void;
+        onRequestDelete: (task: Task) => void;
+        onEdit: (id: string, title: string) => void;
         animations: boolean;
         density: "comfortable" | "compact";
       }) {
@@ -539,7 +590,8 @@ export default function TaskList() {
                   selected={selectedIndex === i}
                   onSelect={onSelect}
                   onToggle={onToggle}
-                  onDelete={onDelete}
+                  onRequestDelete={onRequestDelete}
+                  onEdit={onEdit}
                   animations={animations}
                   density={density}
                 />
@@ -572,17 +624,28 @@ export default function TaskList() {
             onToggle={toggleTaskById}
             onDelete={deleteTaskById}
             onEdit={editTaskTitle}
+            availableSlots={availableSlots}
             onImportSelected={(ids) => {
               if (!ids || ids.length === 0) return;
+              const slots = Math.max(0, 6 - unfinishedToday.length);
+              const allowedIds = ids.slice(0, slots);
+              if (allowedIds.length === 0) {
+                toast({
+                  title: "No slots available",
+                  description: "Complete tasks to free up slots before importing.",
+                  variant: "warning",
+                });
+                return;
+              }
               setTasks((prev) => {
-                const set = new Set(ids);
+                const set = new Set(allowedIds);
                 const next = prev.map((t) =>
                   set.has(t.id)
                     ? { ...t, dueDate: today, rolledOver: false }
                     : t,
                 );
                 // Persist updates for imported tasks
-                ids.forEach((id) =>
+                allowedIds.forEach((id) =>
                   storageAdapter.updateTask(id, {
                     dueDate: today,
                     rolledOver: false,
@@ -590,13 +653,25 @@ export default function TaskList() {
                 );
                 return next;
               });
+              if (allowedIds.length < ids.length) {
+                toast({
+                  title: `Imported ${allowedIds.length} task${allowedIds.length > 1 ? "s" : ""}`,
+                  description: `${ids.length - allowedIds.length} couldn't be imported due to the 6-task limit.`,
+                  variant: "warning",
+                });
+              } else {
+                toast({
+                  title: `Imported ${allowedIds.length} task${allowedIds.length > 1 ? "s" : ""}`,
+                  variant: "success",
+                });
+              }
             }}
           />
         }
         right={<CalendarPanel tasks={tasks} />}
       >
         <div
-          className="h-full min-h-0 p-6 bg-card text-card-foreground rounded-xl shadow flex flex-col select-none overflow-hidden"
+          className="relative h-full min-h-0 p-6 bg-card text-card-foreground rounded-xl shadow flex flex-col select-none overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           ref={centerRef}
@@ -613,20 +688,23 @@ export default function TaskList() {
           </div>
 
           <TaskItems
-            items={todaysAll}
+            items={displayList}
             selectedIndex={selectedIndex}
             onSelect={setSelectedIndex}
             onToggle={toggleTaskById}
-            onDelete={deleteTaskById}
+            onRequestDelete={(task) => setDeleteModal({ id: task.id, title: task.title })}
+            onEdit={(id, title) => setEditModal({ id, title })}
             animations={animations}
             density={density}
           />
 
           {!canAdd && (
-            <p className="mt-2 text-xs text-destructive">
-              Daily focus limit reached (6). Complete tasks to add more.
-            </p>
+            <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-4" />
+              <span>Daily focus limit reached (6). Complete tasks to add more.</span>
+            </div>
           )}
+
         </div>
       </PanelContainer>
 
@@ -668,6 +746,45 @@ export default function TaskList() {
                   setEditModal(null);
                 }}
               />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete task confirm */}
+      <AnimatePresence>
+        {deleteModal && (
+          <motion.div
+            key="delete-task"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+            onClick={() => setDeleteModal(null)}
+          >
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 text-sm font-medium text-destructive">Delete task</div>
+              <div className="text-sm text-muted-foreground">Are you sure you want to delete “{deleteModal.title}”?</div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setDeleteModal(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    deleteTaskById(deleteModal.id);
+                    setDeleteModal(null);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </motion.div>
           </motion.div>
         )}

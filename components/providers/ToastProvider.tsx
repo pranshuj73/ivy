@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { XIcon, Info, CheckCircle2, AlertTriangle } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useSettings } from "@/components/providers/SettingsProvider";
 
 export type ToastVariant = "default" | "success" | "warning" | "destructive";
 
@@ -27,6 +29,7 @@ function uid(): string {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const { animations } = useSettings();
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -52,9 +55,19 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div className="fixed right-4 top-4 z-[70] flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
-        {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onClose={() => dismiss(t.id)} />
-        ))}
+        <AnimatePresence initial={false}>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              initial={animations ? { opacity: 0, y: -8, scale: 0.98 } : false}
+              animate={animations ? { opacity: 1, y: 0, scale: 1 } : {}}
+              exit={animations ? { opacity: 0, y: -8, scale: 0.98 } : {}}
+              transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.6 }}
+            >
+              <ToastItem toast={t} onClose={() => dismiss(t.id)} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </ToastContext.Provider>
   );

@@ -3,11 +3,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Task } from "@/types/task";
 import type { Bucket } from "@/types/bucket";
-import { ChevronDown, ChevronRight, Pencil, Trash2, CheckSquare, PlusCircle, XCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Trash2, CheckSquare, PlusCircle, XCircle, MoreHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AnimatePresence, motion } from "framer-motion";
+import { useSettings } from "@/components/providers/SettingsProvider";
+import { toDateString } from "@/lib/date";
 
 export type BucketListPanelProps = {
   buckets: Bucket[];
@@ -16,6 +18,7 @@ export type BucketListPanelProps = {
   onDelete: (taskId: string) => void;
   onEdit: (taskId: string, title: string) => void;
   onImportSelected?: (taskIds: string[]) => void;
+  availableSlots?: number; // optional hint from parent
 };
 
 export default function BucketListPanel({
@@ -25,15 +28,26 @@ export default function BucketListPanel({
   onDelete,
   onEdit,
   onImportSelected,
+  availableSlots,
 }: BucketListPanelProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [editing, setEditing] = useState<{ id: string; title: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
   const [draft, setDraft] = useState("");
+  const { showCompleted } = useSettings();
+
   useEffect(() => {
     setDraft(editing?.title ?? "");
   }, [editing]);
+
+  const today = useMemo(() => toDateString(new Date()), []);
+  const unfinishedToday = useMemo(
+    () => tasks.filter((t) => t.dueDate === today && !t.completed).length,
+    [tasks, today],
+  );
+  const slots = Math.max(0, (availableSlots ?? 6 - unfinishedToday));
 
   const grouped = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -68,6 +82,9 @@ export default function BucketListPanel({
         {grouped.map(([bucketId, list]) => {
           const bucket = buckets.find((b) => b.id === bucketId);
           const isCollapsed = !!collapsed[bucketId];
+          const listForRender = (showCompleted ? list : list.filter((t) => !t.completed))
+            .slice()
+            .sort((a, b) => Number(a.completed) - Number(b.completed));
           return (
             <div
               key={bucketId}
@@ -91,18 +108,18 @@ export default function BucketListPanel({
               </button>
               {!isCollapsed && (
                 <ul className="divide-y divide-border/80">
-                  {list.length === 0 && (
+                  {listForRender.length === 0 && (
                     <li className="p-3 text-xs text-muted-foreground">
                       No tasks
                     </li>
                   )}
-                  {list.map((t) => {
+                  {listForRender.map((t) => {
                     const isSelected = selected.has(t.id);
                     const selectedClasses = selectMode && isSelected ? "bg-primary/10 ring-2 ring-primary/60" : "";
                     return (
                       <li
                         key={t.id}
-                        className={`flex items-center justify-between rounded-md px-3 py-2 transition-colors ${selectedClasses} ${selectMode ? "cursor-pointer" : ""}`}
+                        className={`group flex items-center justify-between rounded-md px-3 py-2 transition-colors ${selectedClasses} ${selectMode ? "cursor-pointer" : ""}`}
                         onClick={(e) => {
                           if (!selectMode) return;
                           const target = e.target as HTMLElement;
@@ -122,25 +139,36 @@ export default function BucketListPanel({
                             {t.title}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center overflow-hidden rounded-md" data-row-action>
                           <Button
                             variant="ghost"
                             size="icon-sm"
+                            aria-label="More"
+                            className="transition-all group-hover:hidden"
                             onClick={() => setEditing({ id: t.id, title: t.title })}
-                            aria-label="Edit task"
-                            data-row-action
                           >
-                            <Pencil className="size-4" />
+                            <MoreHorizontal className="size-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => onDelete(t.id)}
-                            aria-label="Delete task"
-                            data-row-action
-                          >
-                            <Trash2 className="size-4 text-destructive" />
-                          </Button>
+                          <div className="hidden items-center gap-0 group-hover:flex">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setEditing({ id: t.id, title: t.title })}
+                              aria-label="Edit task"
+                              className="rounded-r-none"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setConfirmDelete({ id: t.id, title: t.title })}
+                              aria-label="Delete task"
+                              className="rounded-l-none"
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       </li>
                     );
@@ -160,18 +188,18 @@ export default function BucketListPanel({
           </Button>
         ) : (
           <div>
-            <div className="mb-2 text-xs text-muted-foreground">{selected.size} selected</div>
+            <div className="mb-2 text-xs text-muted-foreground">{selected.size} selected • {Math.min(selected.size, slots)} can import</div>
             <div className="flex gap-2">
               <Button
                 className="gap-2 flex-1"
-                disabled={selected.size === 0}
+                disabled={selected.size === 0 || slots === 0}
                 onClick={() => {
-                  if (onImportSelected) onImportSelected(Array.from(selected));
+                  if (onImportSelected) onImportSelected(Array.from(selected).slice(0, slots));
                   clearSelection();
                   setSelectMode(false);
                 }}
               >
-                <PlusCircle className="size-4" /> Import
+                <PlusCircle className="size-4" /> Import {Math.min(selected.size, slots)}
               </Button>
               <Button
                 variant="secondary"
@@ -219,7 +247,7 @@ export default function BucketListPanel({
                       e.preventDefault();
                       const t = draft.trim();
                       if (t) {
-                        onEdit(editing.id, t);
+                        onEdit(editing!.id, t);
                         setEditing(null);
                       }
                     }
@@ -230,10 +258,50 @@ export default function BucketListPanel({
                   }}
                 />
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="destructive" onClick={() => { onDelete(editing.id); setEditing(null); }}>Delete</Button>
+                  <Button variant="destructive" onClick={() => { setConfirmDelete({ id: editing!.id, title: draft || editing!.title }); }}>Delete</Button>
                   <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-                  <Button onClick={() => { const t = draft.trim(); if (t) { onEdit(editing.id, t); setEditing(null); } }} disabled={draft.trim().length === 0}>Save</Button>
+                  <Button onClick={() => { const t = draft.trim(); if (t) { onEdit(editing!.id, t); setEditing(null); } }} disabled={draft.trim().length === 0}>Save</Button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete modal */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div
+            key="delete-bucket-task"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[70] grid place-items-center bg-black/40 p-4"
+            onClick={() => setConfirmDelete(null)}
+          >
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              className="w-full max-w-md rounded-xl border border-border bg-card p-4 text-card-foreground shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 text-sm font-medium text-destructive">Delete task</div>
+              <div className="text-sm text-muted-foreground">Are you sure you want to delete “{confirmDelete.title}”?</div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    onDelete(confirmDelete.id);
+                    setConfirmDelete(null);
+                    setEditing(null);
+                  }}
+                >
+                  Delete
+                </Button>
               </div>
             </motion.div>
           </motion.div>
