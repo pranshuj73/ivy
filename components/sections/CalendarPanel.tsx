@@ -69,12 +69,12 @@ export default function CalendarPanel({
         {grid.map((d, i) => (
           <div
             key={i}
-            className={`aspect-square rounded-md border border-border/80 p-1 text-center text-sm transition-colors hover:opacity-90 ${
+            className={`aspect-square rounded-md border border-border/80 text-sm transition-colors hover:opacity-90 flex items-center justify-center ${
               d ? colorForDate(d) : "bg-transparent border-transparent"
             }`}
             title={d ? toDateString(d) : ""}
           >
-            {d && <span>{d.getDate()}</span>}
+            {d && <span className="leading-none">{d.getDate()}</span>}
           </div>
         ))}
       </div>

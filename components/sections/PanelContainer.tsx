@@ -39,6 +39,7 @@ export default function PanelContainer({
               damping: 30,
               mass: 0.6,
             }}
+            // Keep overlay below the sliding panels so they remain interactive.
             className="pointer-events-auto absolute inset-0 z-10 bg-black"
             onClick={onOverlayClick}
             aria-hidden
@@ -54,7 +55,7 @@ export default function PanelContainer({
             initial={false}
             animate={{ x: leftOpen ? 0 : "-110%", opacity: leftOpen ? 1 : 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 30 }}
-            className="h-full will-change-transform"
+            className="h-full will-change-transform z-20"
           >
             <div className="h-full overflow-y-auto rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm shadow-lg">
               {left}
@@ -79,7 +80,7 @@ export default function PanelContainer({
             initial={false}
             animate={{ x: rightOpen ? 0 : "110%", opacity: rightOpen ? 1 : 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 30 }}
-            className="h-full will-change-transform"
+            className="h-full will-change-transform z-20"
           >
             <div className="h-full overflow-y-auto rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm shadow-lg">
               {right}

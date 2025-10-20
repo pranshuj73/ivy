@@ -13,6 +13,7 @@ export type BucketListPanelProps = {
   onToggle: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onEdit: (taskId: string, title: string) => void;
+  onImportSelected?: (taskIds: string[]) => void;
 };
 
 export default function BucketListPanel({
@@ -21,8 +22,10 @@ export default function BucketListPanel({
   onToggle,
   onDelete,
   onEdit,
+  onImportSelected,
 }: BucketListPanelProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const grouped = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -35,8 +38,21 @@ export default function BucketListPanel({
     return Array.from(map.entries());
   }, [buckets, tasks]);
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full overflow-y-auto p-4 relative">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Buckets
       </h2>
@@ -72,57 +88,94 @@ export default function BucketListPanel({
                       No tasks
                     </li>
                   )}
-                  {list.map((t) => (
-                    <li
-                      key={t.id}
-                      className="flex items-center justify-between px-3 py-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={t.completed}
-                          onCheckedChange={() => onToggle(t.id)}
-                        />
-                        <span
-                          className={`text-sm ${t.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
-                        >
-                          {t.title}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => {
-                            const next = window.prompt(
-                              "Edit task title",
-                              t.title,
-                            );
-                            if (next == null) return;
-                            const trimmed = next.trim();
-                            if (!trimmed) return;
-                            onEdit(t.id, trimmed);
-                          }}
-                          aria-label="Edit task"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => onDelete(t.id)}
-                          aria-label="Delete task"
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
+                  {list.map((t) => {
+                    const isSelected = selected.has(t.id);
+                    return (
+                      <li
+                        key={t.id}
+                        className={`flex items-center justify-between px-3 py-2 ${
+                          isSelected ? "bg-secondary/60" : ""
+                        }`}
+                        onClick={(e) => {
+                          // Only toggle selection when clicking the row itself, not the inner controls
+                          const target = e.target as HTMLElement;
+                          if (target.closest("[data-row-action]") || target.closest("input")) return;
+                          toggleSelect(t.id);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={t.completed}
+                            onCheckedChange={() => onToggle(t.id)}
+                            data-row-action
+                          />
+                          <span
+                            className={`text-sm ${t.completed ? "line-through text-muted-foreground" : "text-foreground"}`}
+                          >
+                            {t.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleSelect(t.id)}
+                            aria-label={isSelected ? "Deselect task" : "Select task"}
+                            data-row-action
+                          >
+                            {isSelected ? "Selected" : "Select"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => {
+                              const next = window.prompt(
+                                "Edit task title",
+                                t.title,
+                              );
+                              if (next == null) return;
+                              const trimmed = next.trim();
+                              if (!trimmed) return;
+                              onEdit(t.id, trimmed);
+                            }}
+                            aria-label="Edit task"
+                            data-row-action
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onDelete(t.id)}
+                            aria-label="Delete task"
+                            data-row-action
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
           );
         })}
       </div>
+
+      {selected.size > 0 && onImportSelected && (
+        <div className="pointer-events-none absolute right-[-0.5rem] top-1/2 z-30 -translate-y-1/2">
+          <Button
+            className="pointer-events-auto rounded-full shadow-md"
+            onClick={() => {
+              onImportSelected(Array.from(selected));
+              clearSelection();
+            }}
+          >
+            Import {selected.size}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

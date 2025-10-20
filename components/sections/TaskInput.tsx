@@ -106,61 +106,64 @@ export default function TaskInput({
           <div className="pointer-events-auto w-full max-w-2xl p-3">
             <div className="rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-lg">
               <div className="p-2">
-                <InputGroup>
-                  <InputGroupInput
-                    ref={inputRef}
-                    placeholder="Add task — use @bucket to assign"
-                    value={value}
-                    onChange={(e) => onChange(e.currentTarget.value)}
-                    onKeyDown={handleKeyDown}
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      size="icon-xs"
-                      className="rounded-full"
-                      onClick={onSubmit}
-                    >
-                      <PlusIcon />
-                    </InputGroupButton>
-                    <InputGroupButton
-                      size="icon-xs"
-                      variant="ghost"
-                      className="rounded-full"
-                      onClick={onClose}
-                    >
-                      <XIcon />
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-                <AnimatePresence>
-                  {suggestions.length > 0 && (
-                    <motion.div
-                      key="suggestions"
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="mt-2 max-h-44 overflow-auto rounded-lg border border-border bg-popover text-sm shadow"
-                      role="listbox"
-                    >
-                      {suggestions.map((b, i) => (
-                        <button
-                          key={b.id}
-                          className={`flex w-full items-center justify-between px-3 py-2 text-left ${
-                            i === activeIndex
-                              ? "bg-secondary/80"
-                              : "hover:bg-secondary/60"
-                          }`}
-                          onClick={() => applySuggestion(b.name)}
-                          role="option"
-                          aria-selected={i === activeIndex}
-                        >
-                          <span>@{b.name}</span>
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className="relative">
+                  <InputGroup>
+                    <InputGroupInput
+                      ref={inputRef}
+                      placeholder="Add task — use @bucket to assign"
+                      value={value}
+                      onChange={(e) => onChange(e.currentTarget.value)}
+                      onKeyDown={handleKeyDown}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        size="icon-xs"
+                        className="rounded-full"
+                        onClick={onSubmit}
+                      >
+                        <PlusIcon />
+                      </InputGroupButton>
+                      <InputGroupButton
+                        size="icon-xs"
+                        variant="ghost"
+                        className="rounded-full"
+                        onClick={onClose}
+                      >
+                        <XIcon />
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+
+                  <AnimatePresence>
+                    {suggestions.length > 0 && (
+                      <motion.div
+                        key="suggestions"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute bottom-full left-0 right-0 mb-2 max-h-44 overflow-auto rounded-lg border border-border bg-popover text-sm shadow z-50"
+                        role="listbox"
+                      >
+                        {suggestions.map((b, i) => (
+                          <button
+                            key={b.id}
+                            className={`flex w-full items-center justify-between px-3 py-2 text-left ${
+                              i === activeIndex
+                                ? 'bg-secondary/80'
+                                : 'hover:bg-secondary/60'
+                            }`}
+                            onClick={() => applySuggestion(b.name)}
+                            role="option"
+                            aria-selected={i === activeIndex}
+                          >
+                            <span>@{b.name}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </div>

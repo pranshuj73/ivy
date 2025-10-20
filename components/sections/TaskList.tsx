@@ -184,7 +184,33 @@ export default function TaskList() {
     storageAdapter.updateTask(id, { title });
   }, []);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (use stable listener to avoid re-renders/flicker)
+  const todaysAllRef = useRef<Task[]>([]);
+  const selectedIndexRef = useRef<number | null>(null);
+  const leftOpenRef = useRef(false);
+  const rightOpenRef = useRef(false);
+  const inputVisibleRef = useRef(false);
+  const inputValueRef = useRef("");
+
+  useEffect(() => {
+    todaysAllRef.current = todaysAll;
+  }, [todaysAll]);
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
+  useEffect(() => {
+    leftOpenRef.current = leftOpen;
+  }, [leftOpen]);
+  useEffect(() => {
+    rightOpenRef.current = rightOpen;
+  }, [rightOpen]);
+  useEffect(() => {
+    inputVisibleRef.current = inputVisible;
+  }, [inputVisible]);
+  useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       // Disable global shortcuts while typing in inputs/textareas/contenteditable
@@ -196,6 +222,13 @@ export default function TaskList() {
         ae?.getAttribute("contenteditable") === "true";
       if (isTyping) return;
 
+      const todays = todaysAllRef.current;
+      const sel = selectedIndexRef.current;
+      const leftOpen = leftOpenRef.current;
+      const rightOpen = rightOpenRef.current;
+      const inputVisible = inputVisibleRef.current;
+      const currentInput = inputValueRef.current;
+
       if (e.key === "c" || e.key === "n") {
         e.preventDefault();
         if (!inputVisible) setInputVisible(true);
@@ -206,29 +239,27 @@ export default function TaskList() {
         setRightOpen(next);
       } else if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        if (todaysAll.length === 0) return;
+        if (todays.length === 0) return;
         setSelectedIndex((prev) => {
-          const next =
-            prev == null ? 0 : Math.min(prev + 1, todaysAll.length - 1);
+          const next = prev == null ? 0 : Math.min(prev + 1, todays.length - 1);
           return next;
         });
       } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
-        if (todaysAll.length === 0) return;
+        if (todays.length === 0) return;
         setSelectedIndex((prev) => {
-          const next =
-            prev == null ? todaysAll.length - 1 : Math.max(prev - 1, 0);
+          const next = prev == null ? todays.length - 1 : Math.max(prev - 1, 0);
           return next;
         });
       } else if (e.key === "x") {
         e.preventDefault();
-        if (selectedIndex != null && todaysAll[selectedIndex]) {
-          toggleTaskById(todaysAll[selectedIndex].id);
+        if (sel != null && todays[sel]) {
+          toggleTaskById(todays[sel].id);
         }
       } else if (e.key === "Enter") {
         if (inputVisible) {
           e.preventDefault();
-          addTaskFromInput(inputValue);
+          addTaskFromInput(currentInput);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -247,7 +278,7 @@ export default function TaskList() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [todaysAll, selectedIndex, leftOpen, rightOpen, inputVisible, inputValue]);
+  }, [toggleTaskById]);
 
   // Gesture handling
   function handleTouchStart(e: React.TouchEvent) {
@@ -415,6 +446,25 @@ export default function TaskList() {
             onToggle={toggleTaskById}
             onDelete={deleteTaskById}
             onEdit={editTaskTitle}
+            onImportSelected={(ids) => {
+              if (!ids || ids.length === 0) return;
+              setTasks((prev) => {
+                const set = new Set(ids);
+                const next = prev.map((t) =>
+                  set.has(t.id)
+                    ? { ...t, dueDate: today, rolledOver: false }
+                    : t,
+                );
+                // Persist updates for imported tasks
+                ids.forEach((id) =>
+                  storageAdapter.updateTask(id, {
+                    dueDate: today,
+                    rolledOver: false,
+                  }),
+                );
+                return next;
+              });
+            }}
           />
         }
         right={<CalendarPanel tasks={tasks} />}
